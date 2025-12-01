@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Retiro 2026 - Estrategista Pessoal</title>
+
+<style>
+    /* -------------------- CONFIG BASE - DARK THEME -------------------- */
+    body {
+        margin: 0;
+        font-family: 'Inter', sans-serif;
+        background: #121212; /* Fundo Escuro */
+        color: #E0E0E0; /* Texto Claro */
+        overflow-x: hidden;
+        min-height: 100vh;
+        padding-bottom: 20px;
+    }
+
+    header {
+        background: #00796B; /* Teal - Cor de Destaque */
+        padding: 20px;
+        font-size: 28px;
+        font-weight: 700;
+        text-align: center;
+        color: white;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6); 
+        margin-bottom: 20px;
+    }
+
+    .screen {
+        display: none;
+        padding: 0 20px;
+        animation: fadeIn 0.4s ease;
+    }
+    .active {
+        display: block;
+    }
+
+    /* -------------------- ANIMAÇÕES E HOVER -------------------- */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: none; }
+    }
+
+    .button-base {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background-color 0.2s, transform 0.1s;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    .button-base:active {
+        transform: scale(0.98);
+        box-shadow: none;
+    }
+
+    /* -------------------- TELA 1 - LISTA -------------------- */
+    .list-container {
+        background: #1E1E1E; /* Fundo do Card */
+        color: #E0E0E0;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7);
+        max-width: 600px;
+        margin: 0px auto;
+    }
+
+    /* Mensagem de Status (sucesso/erro) */
+    .status-message {
+        color: white;
+        background: #D32F2F; /* Cor de erro */
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 8px;
+        text-align: center;
+        display: none;
+        font-weight: 600;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+    }
+    .status-success {
+        background: #00796B; /* Cor de sucesso */
+    }
+    #loadingIndicator {
+        text-align: center;
+        color: #B2DFDB;
+        padding: 20px 0;
+    }
+
+    h2 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 10px;
+        color: #B2DFDB; /* Teal Claro */
+        font-size: 22px;
+    }
+
+    .add-member-section {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    #newMemberName {
+        flex-grow: 1;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #333;
+        background: #252525;
+        color: white;
+    }
+
+    #addMemberButton {
+        background: #00796B;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    #addMemberButton:hover {
+        background: #004D40;
+    }
+
+    /* Container do Item */
+    .item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0; 
+        margin-bottom: 5px;
+        border-bottom: 1px solid #333;
+    }
+    .item:last-child {
+        border-bottom: none;
+    }
+    
+    /* Área principal, clicável para abrir skills */
+    .member-info {
+        display: flex;
+        align-items: center;
+        flex-grow: 1;
+        cursor: pointer;
+        padding: 15px 15px 15px 0; 
+        border-radius: 8px 0 0 8px;
+        transition: background-color 0.2s, transform 0.1s;
+        font-size: 18px; 
+        font-weight: 700; 
+    }
+    
+    .member-info:hover {
+        background: #282828;
+    }
+    
+    /* Círculo com a Inicial */
+    .circle {
+        width: 30px;
+        height: 30px;
+        background: #00796B;
+        border-radius: 50%;
+        margin-right: 12px;
+        flex-shrink: 0; 
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        font-size: 16px;
+        color: white;
+    }
+
+    /* Botão de Excluir como ícone circular pequeno */
+    .delete-button {
+        background: #B71C1C; /* Vermelho escuro para fundo */
+        color: white;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: none;
+        border-radius: 50%; /* Torna-o um círculo */
+        font-size: 16px; 
+        line-height: 1;
+        margin-left: 10px;
+        transition: background-color 0.2s;
+        flex-shrink: 0;
+    }
+
+    .delete-button:hover {
+        background: #9A1818; 
+    }
+
+    /* -------------------- TELA 2 - HABILIDADES -------------------- */
+    .skills-title-container {
+        padding: 0 20px; 
+        max-width: 600px;
+        margin: 0px auto;
+    }
+
+
+    .back {
+        color: #00796B;
+        cursor: pointer;
+        font-size: 18px;
+        margin-bottom: 20px;
+        display: inline-block;
+        transition: 0.3s;
+    }
+
+    .back:hover {
+        transform: translateX(-5px);
+        color: #4DB6AC;
+    }
+
+    .skill-block {
+        max-width: 600px;
+        margin: auto;
+    }
+
+    .profile {
+        display: flex;
+        align-items: center;
+        margin-bottom: 25px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #444;
+    }
+
+    /* Ajuste para o círculo maior de perfil */
+    .profile .circle {
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+    }
+
+    #currentMemberName {
+        margin-left: 15px;
+        font-size: 24px;
+        font-weight: 700;
+        color: #fff;
+    }
+
+    /* Layout da Barra de Habilidade */
+    .skill-line {
+        background: #1E1E1E;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    }
+    
+    .skill-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .skill-label {
+        font-weight: bold;
+        font-size: 18px;
+        color: #B2DFDB;
+    }
+    
+    /* BARRA DE PROGRESSO VIBRANTE */
+    .progress-container {
+        height: 15px; 
+        background: #333; 
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #444; 
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #F9A825, #FFEB3B); 
+        border-radius: 8px;
+        transition: width 0.3s ease-out; 
+        box-shadow: 0 0 5px #F9A825;
+    }
+    /* FIM DA BARRA DE PROGRESSO */
+
+
+    .skill-controls button {
+        background: #333;
+        color: white;
+        width: 30px;
+        height: 30px;
+        line-height: 1;
+        font-size: 18px;
+        border: 1px solid #555;
+        border-radius: 50%;
+        margin-left: 5px;
+    }
+
+    .skill-controls button:hover {
+        background: #444;
+    }
+
+    /* -------------------- Resumo Block -------------------- */
+    .summary-block {
+        background: #1E1E1E; 
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 25px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    }
+    .summary-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    .summary-block h3 {
+        color: #B2DFDB;
+        font-size: 20px;
+        margin: 0;
+        padding: 0;
+        border-bottom: none; 
+    }
+    .add-summary-button {
+        background: #00796B;
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        padding: 0;
+        font-size: 20px;
+        line-height: 1;
+    }
+    #summaryTextarea {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #444;
+        background: #252525;
+        color: white;
+        resize: vertical;
+        margin-bottom: 10px;
+        font-size: 14px;
+    }
+    .save-button {
+        background: #00796B;
+        color: white;
+        float: right;
+        margin-top: 10px;
+    }
+    #summaryDisplay {
+        padding: 10px;
+        background: #252525;
+        border-radius: 8px;
+        min-height: 40px;
+        white-space: pre-wrap; 
+        color: #C0C0C0;
+        font-style: italic;
+    }
+    .placeholder-text {
+        opacity: 0.6;
+        font-style: italic;
+    }
+    
+    /* -------------------- MODAL DE EXCLUSÃO -------------------- */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85); 
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: #1a1a1a;
+      padding: 20px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 350px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.9);
+      animation: fadeIn 0.3s;
+      border: 1px solid #333;
+    }
+    .modal-content h3 {
+      color: #B71C1C;
+      margin-top: 0;
+      border-bottom: 1px solid #333;
+      padding-bottom: 10px;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .modal-btn {
+      padding: 10px 18px; 
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+    .modal-cancel {
+      background: #444;
+      color: white;
+    }
+    .modal-delete {
+      background: #B71C1C;
+      color: white;
+    }
+    
+    /* Indicador Local Storage */
+    #statusInfo {
+        font-size: 12px;
+        color: #4DB6AC;
+        text-align: center;
+        padding: 10px 0;
+        word-break: break-all;
+    }
+
+</style>
+</head>
+
+<body>
+
+<header>RETIRO 2026 🏆 (ESTRATEGISTA PESSOAL)</header>
+
+<div id="tela1" class="screen active">
+    <div class="list-container">
+        <div id="statusMessage" class="status-message"></div>
+
+        <h2>INTEGRANTES:</h2>
+
+        <div class="add-member-section">
+            <input type="text" id="newMemberName" placeholder="Nome do novo membro..." maxlength="30">
+            <button id="addMemberButton" class="button-base" onclick="addMember()">Adicionar</button>
+        </div>
+
+        <div id="memberList">
+            <p id="loadingIndicator">Carregando dados locais...</p>
+        </div>
+    </div>
+    <div id="statusInfo">Modo: Armazenamento Local (Não requer internet)</div>
+</div>
+
+<div id="tela2" class="screen">
+    <div class="skills-title-container">
+        <span class="back" onclick="back()">← Voltar para a lista</span>
+
+        <div class="profile">
+            <div id="profileCircle" class="circle"></div> 
+            <span id="currentMemberName"></span>
+        </div>
+
+        <div id="skillsContainer">
+        </div>
+        
+        <div class="summary-block">
+            <div class="summary-header">
+                <h3>Resumo de Análise</h3>
+                <button id="summaryToggleButton" class="button-base add-summary-button" onclick="toggleSummaryInput()">+</button>
+            </div>
+            
+            <div id="summaryDisplay">
+            </div>
+            
+            <div id="summaryEditArea" class="edit-area" style="display:none;">
+                <textarea id="summaryTextarea" rows="4" placeholder="Escreva aqui o resumo de habilidades e pontos fortes do membro..."></textarea>
+                <button id="saveSummaryButton" class="button-base save-button" onclick="saveSummary()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="deleteModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>Excluir Membro</h3>
+      <p id="deleteModalText">Tem certeza que deseja EXCLUIR este membro e todos os seus dados táticos permanentemente?</p>
+      <div class="modal-actions">
+        <button class="modal-btn modal-cancel" onclick="hideDeleteModal()">Cancelar</button>
+        <button class="modal-btn modal-delete" onclick="confirmDelete()">EXCLUIR</button>
+      </div>
+    </div>
+</div>
+
+<script>
+    // -------------------- Variáveis de Configuração Local --------------------
+    const LOCAL_STORAGE_KEY = 'retiro2026_local_data';
+
+    // Variáveis de Estado da Aplicação
+    let membersData = {}; // Objeto que armazena os dados (ID -> Documento)
+    let currentMemberId = null; 
+    
+    // Constantes de Habilidades
+    const allSkills = [
+        "Força", "Agilidade", "Reflexo", "Velocidade", "Tempo de reação",
+        "QI bíblico", "Raciocínio", "Controle psicológico", "Competitividade", "Agressividade"
+    ];
+    const initialSkillLevel = 5;
+    const maxSkillLevel = 9;
+    const minSkillLevel = 1;
+    
+    // Referências DOM (Inicializadas em window.onload)
+    let statusMessageEl;
+    let loadingIndicator;
+    let memberListEl;
+    let summaryDisplayEl;
+    let summaryTextareaEl;
+    let summaryEditAreaEl;
+    let summaryToggleButtonEl;
+    
+    // -------------------- FUNÇÕES DE SALVAMENTO E CARREGAMENTO --------------------
+
+    /** Carrega os dados do Local Storage. */
+    function loadData() {
+        try {
+            const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (storedData) {
+                // Converte a string JSON de volta para um objeto JavaScript
+                membersData = JSON.parse(storedData);
+            } else {
+                membersData = {};
+            }
+        } catch (e) {
+            console.error("Erro ao carregar dados do Local Storage:", e);
+            membersData = {};
+        }
+        loadingIndicator.style.display = 'none';
+        renderMemberList();
+    }
+
+    /** Salva os dados no Local Storage. */
+    function saveData() {
+        try {
+            // Converte o objeto JavaScript em uma string JSON para salvar
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(membersData));
+            console.log("Dados salvos localmente.");
+        } catch (e) {
+            console.error("Erro ao salvar dados no Local Storage:", e);
+            showStatus("ERRO: Não foi possível salvar no armazenamento local.", true);
+        }
+    }
+
+    // -------------------- FUNÇÕES DE UTILIDADE E FEEDBACK --------------------
+
+    /** Mostra uma mensagem de status temporária na tela. */
+    function showStatus(message, isError = false) {
+        statusMessageEl.textContent = message;
+        statusMessageEl.classList.remove('status-success');
+        if (!isError) {
+            statusMessageEl.classList.add('status-success');
+        }
+        statusMessageEl.style.opacity = '1';
+        statusMessageEl.style.display = 'block';
+
+        setTimeout(() => {
+            statusMessageEl.style.opacity = '0';
+            setTimeout(() => { statusMessageEl.style.display = 'none'; }, 500); 
+        }, 3000);
+    }
+    window.showStatus = showStatus; 
+
+
+    // -------------------- FUNÇÕES CRUD (LOCAL STORAGE) --------------------
+
+    /** Adiciona um novo membro ao Local Storage. */
+    window.addMember = function() {
+        const input = document.getElementById('newMemberName');
+        const rawName = input.value.trim();
+
+        if (rawName.length < 3) {
+            showStatus("Nome deve ter pelo menos 3 letras.", true);
+            return;
+        }
+
+        const memberName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+        
+        // Verifica se o membro já existe (Localmente)
+        const memberExists = Object.values(membersData).some(c => c.name.toLowerCase() === memberName.toLowerCase());
+        if (memberExists) {
+            showStatus(`Membro '${memberName}' já existe.`, true);
+            return;
+        }
+
+        try {
+            const newMemberId = Date.now().toString(); // Simples ID baseado em timestamp
+            const newMemberData = { id: newMemberId, name: memberName, summary: "" };
+            
+            // Define o nível inicial para todas as habilidades
+            allSkills.forEach(skill => {
+                newMemberData[skill] = initialSkillLevel;
+            });
+            
+            membersData[newMemberId] = newMemberData;
+
+            saveData();
+            renderMemberList();
+            
+            input.value = ''; 
+            showStatus(`Membro '${memberName}' adicionado com sucesso localmente!`, false);
+        } catch (error) {
+            console.error("Erro ao adicionar membro localmente:", error);
+            showStatus("Erro ao adicionar membro localmente.", true);
+        }
+    }
+
+    /** Atualiza o resumo de um membro no Local Storage. */
+    window.saveSummary = function() {
+        if (!currentMemberId) return;
+        
+        const newSummary = summaryTextareaEl.value.trim();
+        
+        try {
+            membersData[currentMemberId].summary = newSummary;
+            saveData();
+            
+            toggleSummaryInput(false); 
+            // Atualiza a visualização sem recarregar tudo
+            document.getElementById('summaryDisplay').textContent = newSummary;
+            document.getElementById('summaryDisplay').classList.remove('placeholder-text');
+            
+            showStatus("Resumo salvo com sucesso localmente!", false);
+
+        } catch (error) {
+            console.error("Erro ao salvar resumo localmente:", error);
+            showStatus("Erro ao salvar resumo localmente.", true);
+        }
+    }
+
+    /** Atualiza o nível de skill de um membro no Local Storage. */
+    window.updateSkill = function(skillName, change) {
+        if (!currentMemberId) return;
+
+        const data = membersData[currentMemberId];
+        let currentLevel = data[skillName] !== undefined ? data[skillName] : initialSkillLevel;
+
+        let newLevel = currentLevel + change;
+
+        // Garante que o nível fique entre o mínimo e o máximo
+        newLevel = Math.max(minSkillLevel, Math.min(maxSkillLevel, newLevel));
+
+        if (newLevel !== currentLevel) {
+            try {
+                // Atualiza o dado no objeto global
+                membersData[currentMemberId][skillName] = newLevel;
+
+                saveData();
+                renderSkills(); // Renderiza a tela 2 para refletir a mudança
+            } catch (error) {
+                console.error("Erro ao atualizar skill localmente:", error);
+                showStatus("Erro ao atualizar skill localmente.", true);
+            }
+        }
+    }
+    
+    /** Deleta o membro do Local Storage. */
+    window.confirmDelete = function() {
+        if (!currentMemberId) return;
+        
+        window.hideDeleteModal();
+
+        try {
+            delete membersData[currentMemberId]; // Remove do objeto
+            saveData(); // Salva a mudança
+            
+            window.showStatus("Membro excluído com sucesso localmente!", false);
+            window.back(); // Volta para a lista
+        } catch (error) {
+            console.error("Erro ao deletar membro localmente:", error);
+            window.showStatus("Erro ao deletar membro localmente.", true);
+        }
+    }
+    
+    // -------------------- MODAL DE CONFIRMAÇÃO --------------------
+    window.showDeleteModal = function(id) {
+        currentMemberId = id; 
+        const comp = membersData[id];
+        document.getElementById('deleteModalText').innerText = `Tem certeza que deseja EXCLUIR ${comp.name} e todos os seus dados táticos permanentemente?`;
+        document.getElementById('deleteModal').style.display = 'flex';
+    }
+    window.hideDeleteModal = function() {
+        document.getElementById('deleteModal').style.display = 'none';
+    }
+
+
+    // -------------------- FUNÇÕES DE RENDERIZAÇÃO E NAVEGAÇÃO --------------------
+
+    /** Renderiza a lista de membros na Tela 1. */
+    function renderMemberList() {
+        memberListEl.innerHTML = '';
+        
+        const memberArray = Object.values(membersData);
+        if (memberArray.length === 0) {
+            memberListEl.innerHTML = '<p style="text-align: center; color: #555; padding: 20px;">Nenhum membro cadastrado. Adicione um acima!</p>';
+            return;
+        }
+
+        // Ordena por nome alfabeticamente
+        memberArray.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+
+        memberArray.forEach(member => {
+            const initial = member.name.charAt(0).toUpperCase();
+            
+            const itemHtml = `
+                <div class="item group">
+                    <div class="member-info" onclick="openSkills('${member.id}')">
+                        <div class="circle">${initial}</div>
+                        <span>${member.name}</span>
+                    </div>
+                    <button class="delete-button" onclick="showDeleteModal('${member.id}')">✕</button>
+                </div>
+            `;
+            memberListEl.innerHTML += itemHtml;
+        });
+    }
+
+    /** Renderiza as barras de habilidades e o resumo na Tela 2. */
+    function renderSkills() {
+        if (!currentMemberId || !membersData[currentMemberId]) return;
+
+        const data = membersData[currentMemberId];
+        const skillsContainerEl = document.getElementById('skillsContainer');
+        skillsContainerEl.innerHTML = '';
+
+        // Renderiza cada habilidade
+        allSkills.forEach(skill => {
+            // Garante que a skill exista no objeto (caso tenha adicionado depois)
+            const level = data[skill] !== undefined ? data[skill] : initialSkillLevel; 
+            
+            const progressBarWidth = ((level / maxSkillLevel) * 100).toFixed(0);
+
+            const skillLineHtml = `
+                <div class="skill-line">
+                    <div class="skill-header">
+                        <span class="skill-label">${skill}</span>
+                        <div class="skill-controls">
+                            <button class="button-base" onclick="updateSkill('${skill}', -1)" ${level <= minSkillLevel ? 'disabled' : ''}>-</button>
+                            <span style="font-weight: 700; color: white; margin: 0 5px;">${level}</span>
+                            <button class="button-base" onclick="updateSkill('${skill}', 1)" ${level >= maxSkillLevel ? 'disabled' : ''}>+</button>
+                        </div>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar" style="width: ${progressBarWidth}%;"></div>
+                    </div>
+                </div>
+            `;
+            skillsContainerEl.innerHTML += skillLineHtml;
+        });
+
+        // Renderiza o resumo
+        const summary = data.summary || "";
+        if (summary) {
+            summaryDisplayEl.textContent = summary;
+            summaryDisplayEl.classList.remove('placeholder-text');
+        } else {
+            summaryDisplayEl.textContent = "Nenhum resumo cadastrado. Clique em '+' para adicionar.";
+            summaryDisplayEl.classList.add('placeholder-text');
+        }
+        
+        // Mantém a textarea de edição sincronizada se estiver aberta
+        if (summaryEditAreaEl.style.display !== 'none') {
+            summaryTextareaEl.value = summary;
+        }
+    }
+
+    /** Navega para a Tela 2 (Habilidades). */
+    window.openSkills = function(memberId) {
+        currentMemberId = memberId;
+        const member = membersData[memberId];
+
+        if (!member) {
+            showStatus("Erro: Membro não encontrado. Voltando à lista.", true);
+            back();
+            return;
+        }
+        
+        document.getElementById('currentMemberName').textContent = member.name;
+        document.getElementById('profileCircle').textContent = member.name.charAt(0).toUpperCase();
+
+        renderSkills();
+        
+        document.getElementById('tela1').classList.remove('active');
+        document.getElementById('tela2').classList.add('active');
+    }
+
+    /** Volta para a Tela 1 (Lista de Membros). */
+    window.back = function() {
+        currentMemberId = null;
+        toggleSummaryInput(false); 
+        document.getElementById('tela2').classList.remove('active');
+        document.getElementById('tela1').classList.add('active');
+        renderMemberList(); // Força a renderização caso o nome tenha sido alterado ou excluído
+    }
+
+    /** Alterna entre visualizar e editar o resumo. */
+    window.toggleSummaryInput = function(enable) {
+        const isEditing = enable !== undefined ? enable : summaryEditAreaEl.style.display === 'none';
+        
+        if (!currentMemberId && isEditing) {
+            showStatus("Selecione um membro primeiro.", true);
+            return;
+        }
+
+        if (isEditing) {
+            summaryEditAreaEl.style.display = 'block';
+            summaryToggleButtonEl.textContent = 'x'; 
+            summaryTextareaEl.value = membersData[currentMemberId].summary || "";
+            summaryDisplayEl.style.display = 'none'; 
+
+        } else {
+            summaryEditAreaEl.style.display = 'none';
+            summaryToggleButtonEl.textContent = '+';
+            summaryDisplayEl.style.display = 'block'; 
+        }
+    }
+
+
+    // -------------------- INICIALIZAÇÃO --------------------
+
+    window.onload = () => {
+        // 1. Atribuição de variáveis DOM
+        statusMessageEl = document.getElementById('statusMessage');
+        loadingIndicator = document.getElementById('loadingIndicator');
+        memberListEl = document.getElementById('memberList');
+        summaryDisplayEl = document.getElementById('summaryDisplay');
+        summaryTextareaEl = document.getElementById('summaryTextarea');
+        summaryEditAreaEl = document.getElementById('summaryEditArea');
+        summaryToggleButtonEl = document.getElementById('summaryToggleButton');
+        
+        // 2. Carrega os dados salvos do Local Storage
+        loadData();
+    };
+</script>
+</body>
+</html>
