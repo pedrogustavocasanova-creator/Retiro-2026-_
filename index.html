@@ -1,1966 +1,780 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Retiro 2026 - Estrategista Pessoal</title>
-
-<!-- Importações Firebase -->
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { 
-        getFirestore, doc, setDoc, updateDoc, deleteDoc, 
-        onSnapshot, collection, query, writeBatch, runTransaction, getDoc,
-        setLogLevel
-    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    // Variáveis Globais de Configuração (FORNECIDAS PELO AMBIENTE)
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-    // Variáveis Globais de Serviços Firebase
-    window.firebaseApp = null;
-    window.db = null;
-    window.auth = null;
-    window.currentUserId = null;
-    window.isAuthReady = false; 
-    
-    // Configuração dos Caminhos do Firestore (Dados Públicos/Compartilhados)
-    window.MEMBER_COLLECTION_PATH = `artifacts/${appId}/public/data/members`;
-    window.ROSTER_COLLECTION_PATH = `artifacts/${appId}/public/data/rosters`;
-    
-    // Configuração de Log (Útil para Debug)
-    setLogLevel('error'); 
-
-    /** Atualiza a mensagem no loading screen. */
-    function updateLoadingMessage(message) {
-        const msgEl = document.getElementById('loadingMessage');
-        if (msgEl) {
-            msgEl.textContent = message;
-        }
-    }
-
-    /** Esconde o loading screen e mostra o app. */
-    function hideLoadingScreen() {
-        const loadingEl = document.getElementById('loadingScreen');
-        if (loadingEl) {
-            loadingEl.style.opacity = '0';
-            setTimeout(() => {
-                loadingEl.style.display = 'none';
-                document.getElementById('mainContentWrapper').style.display = 'block';
-            }, 500); // 500ms para a transição suave
-        }
-    }
-
-
-    /** Inicializa o Firebase e a Autenticação. */
-    window.initFirebase = async () => {
-        if (!firebaseConfig) {
-            console.error("Firebase config is missing.");
-            updateLoadingMessage("⚠️ ERRO: Configuração Firebase ausente. Os dados NÃO serão salvos.");
-            return;
-        }
-        
-        updateLoadingMessage("Aquecendo os Estrategistas...");
-
-        window.firebaseApp = initializeApp(firebaseConfig);
-        window.db = getFirestore(window.firebaseApp);
-        window.auth = getAuth(window.firebaseApp);
-
-        // 1. Autenticação
-        onAuthStateChanged(window.auth, async (user) => {
-            if (user) {
-                window.currentUserId = user.uid;
-                window.isAuthReady = true;
-                console.log("Usuário autenticado:", window.currentUserId);
-                
-                // Exibir ID do Usuário (Obrigatório para Apps Colaborativos)
-                document.getElementById('userIdDisplay').textContent = `ID Estrategista: ${window.currentUserId}`;
-                
-                updateLoadingMessage("Conexão estabelecida. Preparando o Campo Tático...");
-                
-                // Iniciar escuta de dados após a autenticação
-                window.startDataListeners();
-
-                // FINALMENTE, ESCONDE A TELA DE LOADING E MOSTRA O APP PRINCIPAL
-                hideLoadingScreen();
-                
-            } else {
-                console.log("Aguardando autenticação...");
-            }
-        });
-        
-        // Tentativa de login customizado ou anônimo
-        try {
-            updateLoadingMessage("Sincronizando dados de persistência...");
-            if (initialAuthToken) {
-                await signInWithCustomToken(window.auth, initialAuthToken);
-            } else {
-                await signInAnonymously(window.auth);
-            }
-        } catch (error) {
-            console.error("Erro na autenticação:", error);
-            updateLoadingMessage("⚠️ ERRO: Falha na autenticação. Dados podem não ser persistidos.");
-            // Mesmo com erro, permite o uso (sem persistência) após um delay.
-            setTimeout(hideLoadingScreen, 3000); 
-        }
-    };
-    
-    // ------------------- FUNÇÕES DE ACESSO AO FIRESTORE -------------------
-    
-    // Funções exportadas para o escopo global (usadas no resto do script)
-    window.getFirestoreRef = getFirestore;
-    window.docRef = doc;
-    window.colRef = collection;
-    window.setDoc = setDoc;
-    window.updateDoc = updateDoc;
-    window.deleteDoc = deleteDoc;
-    window.onSnapshot = onSnapshot;
-    window.runTransaction = runTransaction;
-    window.getDoc = getDoc;
-    window.getAuth = getAuth;
-
-    // Inicializa o Firebase ao carregar o script
-    window.initFirebase();
-</script>
-
-
+<script src="https://cdn.tailwindcss.com"></script>
 <style>
-    /* -------------------- CONFIG BASE - DARK THEME -------------------- */
-    body {
-        margin: 0;
-        font-family: 'Inter', sans-serif;
-        background: #121212; /* Fundo Escuro */
-        color: #E0E0E0; /* Texto Claro */
-        overflow-x: hidden;
-        min-height: 100vh;
-        padding-bottom: 20px;
-    }
+/* -------------------- CONFIG BASE - DARK THEME -------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background: #0D1117;
+    color: #E0E0E0;
+    overflow-x: hidden;
+    min-height: 100vh;
+    padding-bottom: 30px;
+}
 
-    header {
-        background: #00796B; /* Teal - Cor de Destaque */
-        padding: 20px;
-        font-size: 28px;
-        font-weight: 700;
-        text-align: center;
-        color: white;
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6); 
-        margin-bottom: 20px;
-    }
+/* Fundo do cabeçalho com Gradiente Verde Escuro e texto em Branco */
+header {
+    background: linear-gradient(90deg, #004D40 0%, #1B5E20 100%); 
+    padding: 20px;
+    font-size: 28px;
+    font-weight: 700;
+    text-align: center;
+    color: #FFFFFF;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    margin-bottom: 25px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.screen { display: none; padding: 0 20px; animation: fadeIn 0.4s ease; }
+.active { display: block; }
 
-    /* -------------------- LOADING SCREEN ESTILIZADO -------------------- */
-    #loadingScreen {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: #121212; /* Fundo escuro igual ao body */
-        z-index: 10000;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        opacity: 1;
-        transition: opacity 0.5s ease;
-    }
+/* Fundo das Pranchetas (List-Containers) Cinza Escuro/Preto - MANTIDO */
+.list-container { 
+    max-width: 650px; 
+    margin: 0 auto; 
+    background: #161B22; 
+    color: #E0E0E0; 
+    border-radius:12px; 
+    padding:25px; 
+    box-shadow: 0 8px 30px rgba(0,0,0,0.8); 
+    border:1px solid #30363D; 
+    margin-bottom:35px; 
+}
+.main-section-title { margin-top:0; margin-bottom:15px; padding-bottom:8px; color:#4CAF50; font-size:24px; border-bottom:2px solid #21262D; display:flex; align-items:center; justify-content:space-between; }
 
-    .loader-circle {
-        border: 8px solid #333; /* Cinza escuro */
-        border-top: 8px solid #00BCD4; /* Ciano/Teal brilhante */
-        border-radius: 50%;
-        width: 60px;
-        height: 60px;
-        animation: spin 1s linear infinite;
-        margin-bottom: 20px;
-    }
+/* Buttons and layout */
+.button-base { padding: 10px 18px; border: none; border-radius: 10px; cursor: pointer; font-weight:700; transition: all 0.2s ease; box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
+.button-base:hover:not(:disabled){ transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.5); }
+.button-base:active:not(:disabled){ transform: scale(0.98); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
+.button-base:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
+/* Botão de Copia de Todos (Reduzido para ícone) */
+.copy-btn { 
+    background: #4CAF50; 
+    color: white; 
+    padding: 8px 12px; 
+    border: none; 
+    border-radius: 8px; 
+    font-weight: 900; 
+    cursor:pointer; 
+    font-size: 20px;
+    line-height: 1;
+}
+.copy-btn:hover { background:#81C784; }
+.copy-btn:active { transform: scale(0.95); }
 
-    #loadingMessage {
-        color: #B2DFDB; /* Teal Claro */
-        font-size: 20px;
-        font-weight: 600;
-        text-align: center;
-        max-width: 80%;
-    }
-    
-    #mainContentWrapper {
-        display: none; /* Escondido até o Firebase estar pronto */
-    }
-
-    .screen {
-        display: none;
-        padding: 0 20px;
-        animation: fadeIn 0.4s ease;
-    }
-    .active {
-        display: block;
-    }
-
-    /* -------------------- ANIMAÇÕES E HOVER -------------------- */
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to   { opacity: 1; transform: none; }
-    }
-
-    .button-base {
-        padding: 8px 15px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: 600;
-        transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-    }
-
-    .button-base:active {
-        transform: scale(0.98);
-        box-shadow: none;
-    }
-    
-    .back {
-        display: flex; 
-        align-items: center;
-        width: fit-content; 
-        color: #B2DFDB; 
-        cursor: pointer;
-        font-size: 16px; 
-        font-weight: 600; 
-        padding: 8px 12px; 
-        border-radius: 6px; 
-        margin-bottom: 20px;
-        transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
-    }
-
-    .back:hover {
-        color: #FFFFFF; 
-        background-color: #00796B; 
-        box-shadow: 0 0 5px rgba(0, 121, 107, 0.7); 
-    }
+/* Botão de Copia Individual (Pequeno, ao lado do nome) */
+.small-copy-btn { 
+    background: #4A4A4A; 
+    color: white; 
+    width: 35px; 
+    height: 35px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    padding: 0; 
+    border: none; 
+    border-radius: 50%; 
+    font-size: 16px; 
+    line-height: 1; 
+    margin-left: 10px; 
+    transition: background-color 0.2s; 
+    flex-shrink: 0; 
+}
+.small-copy-btn:hover { background: #6A737D; transform: scale(1.05); }
+.small-copy-btn:active { transform: scale(0.95); }
 
 
-    /* -------------------- LAYOUT GERAL (TELA 1, 2 e 3) -------------------- */
-    .list-container {
-        background: #1E1E1E; /* Fundo do Card */
-        color: #E0E0E0;
-        border-radius: 15px;
-        padding: 20px;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7);
-        max-width: 600px;
-        margin: 0px auto; 
-    }
-    
-    h2, .section-title {
-        margin-top: 0;
-        margin-bottom: 15px;
-        border-bottom: 1px solid #333;
-        padding-bottom: 10px;
-        color: #B2DFDB; /* Teal Claro */
-        font-size: 22px;
-    }
+.add-section { display:flex; gap:8px; margin-bottom:20px; align-items:center; padding:8px; border-radius:10px; background:#1E252D; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3); }
+.add-section input { flex-grow:1; padding:10px; border-radius:8px; border:1px solid #30363D; background:#0D1117; color:white; font-size:15px; transition: border-color 0.2s; height:auto; }
+.add-section input:focus { border-color:#4CAF50; outline:none; box-shadow:0 0 0 2px rgba(76,175,80,0.3); }
 
-    /* Mensagem de Status (sucesso/erro/sincronizando) */
-    .status-message {
-        color: white;
-        background: #D32F2F; /* Cor de erro */
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 8px;
-        text-align: center;
-        display: none;
-        font-weight: 600;
-        opacity: 0;
-        transition: opacity 0.5s ease;
-    }
-    .status-success {
-        background: #00796B; /* Cor de sucesso */
-    }
-    .status-saving {
-        background: #F9A825; /* Amarelo (Aguardando) */
-    }
-    
-    /* Informação de Armazenamento e ID do Usuário */
-    #userIdDisplay {
-        text-align: center;
-        color: #B2DFDB; 
-        padding: 5px 0;
-        font-size: 12px;
-        font-weight: 600;
-        margin-top: 20px;
-        white-space: pre-wrap;
-        word-break: break-all;
-        border-top: 1px solid #333;
-        padding-top: 15px;
-    }
+/* CLASSE PARA BOTÕES COMPACTOS DE ADIÇÃO */
+.compact-add-button { 
+    width:40px !important; 
+    height:40px !important; 
+    padding:0 !important; 
+    border-radius:50% !important; 
+    font-size:24px !important; 
+    display:flex; 
+    align-items:center; 
+    justify-content:center; 
+    font-weight:600 !important; 
+    flex-shrink:0; 
+}
+.add-section .member-button { background:#03A9F4; color:white; }
+.add-section .challenge-button { background:#FF9800; color:white; }
 
+/* Ajuste do item-list para posicionar o botão de cópia */
+.item-list { display:flex; align-items:center; justify-content:space-between; padding:0; margin-bottom:8px; border-radius:8px; background:#1E252D; }
 
-    /* Estilo para Adicionar Item (Membro ou Prova) */
-    .add-item-section {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
-    }
+/* O item-info agora ocupa o espaço, mas não inclui o botão de cópia */
+.item-info { display:flex; align-items:center; flex-grow:1; cursor:pointer; padding:15px; border-radius:8px 0 0 8px; transition: background-color 0.2s; font-size:18px; font-weight:600; }
+.item-info:hover { background:#252D36; box-shadow:0 2px 5px rgba(0,0,0,0.4); }
 
-    .add-item-section input {
-        flex-grow: 1;
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid #333;
-        background: #252525;
-        color: white;
-    }
+.item-actions { display:flex; align-items:center; padding-right:15px; } /* Novo container para os botões de ação */
 
-    #addMemberButton, #addParticipantButton {
-        background: #00796B;
-        color: white;
-        flex-shrink: 0;
-    }
-    /* NOTA: Removemos o disabled no HTML, o loading screen faz o bloqueio. */
-    #addMemberButton:hover, #addParticipantButton:hover {
-        background: #004D40;
-    }
-
-
-    /* Container do Item (Usado para Membro e Participante de Prova) */
-    .item {
-        margin-bottom: 15px;
-        border-bottom: 1px solid #333;
-        padding-bottom: 15px;
-        display: block; 
-    }
-    .item:last-child {
-        border-bottom: none;
-    }
-    
-    .info-block {
-        display: flex;
-        align-items: center;
-        flex-grow: 1;
-        cursor: pointer;
-        padding: 0; 
-        transition: background-color 0.2s, transform 0.1s;
-    }
-    .member-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-    
-    .circle {
-        width: 30px;
-        height: 30px;
-        background: #00796B;
-        border-radius: 50%;
-        margin-right: 12px;
-        flex-shrink: 0; 
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 900;
-        font-size: 16px;
-        color: white;
-    }
-    
-    .circle-game {
-        background: #252525;
-        font-size: 24px; 
-        padding: 0;
-        width: 45px; 
-        height: 45px;
-        border-radius: 10px; 
-        display: flex; 
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 0 5px rgba(0, 121, 107, 0.5); 
-    }
-    
-    .game-details {
-        display: flex;
-        flex-direction: column;
-    }
-    .game-details strong {
-        font-size: 16px;
-        font-weight: 700;
-        color: #fff;
-    }
-    .game-details span {
-        font-size: 12px;
-        color: #A0A0A0;
-    }
-
-    .delete-button {
-        background: #B71C1C; 
-        color: white;
-        width: 30px;
-        height: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        border: none;
-        border-radius: 50%; 
-        font-size: 16px; 
-        line-height: 1;
-        margin-left: 10px;
-        transition: background-color 0.2s;
-        flex-shrink: 0;
-    }
-    .delete-button:hover {
-        background: #9A1818; 
-    }
-
-
-    /* -------------------- LAYOUT TELA 3 (ROSTER) ESPECÍFICO -------------------- */
-    
-    .notes-container {
-        margin-top: 10px;
-        padding-left: 42px; 
-    }
-    .notes-container strong {
-        display: block;
-        margin-bottom: 5px;
-        color: #FFB300;
-        font-size: 12px;
-    }
-    .notes-container textarea {
-        width: 100%;
-        box-sizing: border-box;
-        padding: 8px;
-        border-radius: 6px;
-        border: 1px solid #333;
-        background: #252525;
-        color: white;
-        resize: vertical;
-        min-height: 50px;
-        font-size: 14px;
-    }
-    
-    .note-actions {
-        display: flex;
-        justify-content: flex-end;
-        margin-top: 5px;
-    }
-    
-    .save-note-btn {
-        background: #00796B;
-        color: white;
-        padding: 5px 12px;
-        font-size: 12px;
-        font-weight: 700;
-        border-radius: 6px;
-        transition: background-color 0.2s;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-    }
-    .save-note-btn:disabled {
-        background: #333;
-        color: #777;
-        cursor: not-allowed;
-        box-shadow: none;
-    }
-    .save-note-btn:enabled:hover {
-        background: #004D40;
-    }
-
-    /* -------------------- LAYOUT TELA 2 (SKILLS) -------------------- */
-
-    .skills-title-container {
-        padding: 0 20px; 
-        max-width: 600px;
-        margin: 0px auto;
-    }
-    .profile {
-        display: flex;
-        align-items: center;
-        margin-bottom: 25px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #444;
-    }
-    .profile .circle {
-        width: 50px;
-        height: 50px;
-        font-size: 24px;
-    }
-    #currentMemberName {
-        margin-left: 15px;
-        font-size: 24px;
-        font-weight: 700;
-        color: #fff;
-    }
-    
-    .skill-line {
-        background: #1E1E1E;
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-    }
-    .skill-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-    .skill-label {
-        font-weight: bold;
-        font-size: 18px;
-        color: #B2DFDB;
-    }
-    .progress-container {
-        height: 15px; background: #333; border-radius: 8px; overflow: hidden; border: 1px solid #444; 
-    }
-    .progress-bar {
-        height: 100%; background: linear-gradient(90deg, #F9A825, #FFEB3B); border-radius: 8px; transition: width 0.3s ease-out; box-shadow: 0 0 5px #F9A825;
-    }
-    .skill-controls button {
-        background: #333; color: white; width: 30px; height: 30px; line-height: 1; font-size: 18px; border: 1px solid #555; border-radius: 50%; margin-left: 5px;
-    }
-    .skill-controls button:disabled { background: #121212; color: #555; cursor: not-allowed; }
-    .skill-controls button:enabled:hover { background: #444; }
-
-    .summary-block {
-        background: #1E1E1E; border-radius: 10px; padding: 20px; margin-top: 25px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-    }
-    .summary-header {
-        display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;
-    }
-    .summary-block h3 {
-        color: #B2DFDB; font-size: 20px; margin: 0; padding: 0; border-bottom: none; 
-    }
-    .add-summary-button {
-        background: #00796B; color: white; width: 30px; height: 30px; border-radius: 50%; padding: 0; font-size: 20px; line-height: 1;
-    }
-    #summaryTextarea {
-        width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #252525; color: white; resize: vertical; margin-bottom: 10px; font-size: 14px;
-    }
-    .save-button {
-        background: #00796B; color: white; float: right; margin-top: 10px;
-    }
-    #summaryDisplay {
-        padding: 10px; background: #252525; border-radius: 8px; min-height: 40px; white-space: pre-wrap; color: #C0C0C0; font-style: italic;
-    }
-    .placeholder-text {
-        opacity: 0.6; font-style: italic;
-    }
-
-    /* -------------------- MODAL DE EXCLUSÃO -------------------- */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 1000;
-    }
-    .modal-content {
-      background: #1a1a1a; padding: 20px; border-radius: 12px; width: 90%; max-width: 350px; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.9); animation: fadeIn 0.3s; border: 1px solid #333;
-    }
-    .modal-content h3 {
-      color: #B71C1C; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px;
-    }
-    .modal-actions {
-      display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;
-    }
-    .modal-btn {
-      padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: background 0.2s;
-    }
-    .modal-cancel {
-      background: #444; color: white;
-    }
-    .modal-delete {
-      background: #B71C1C; color: white;
-    }
-
+.circle { width:40px; height:40px; background:#03A9F4; border-radius:50%; margin-right:15px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; color:white; box-shadow:0 2px 5px rgba(0,0,0,0.3); }
+.challenge-circle { background:#FF9800; }
+.delete-button { background:#F44336; color:white; width:35px; height:35px; display:flex; align-items:center; justify-content:center; padding:0; border:none; border-radius:50%; font-size:18px; line-height:1; transition: background-color 0.2s, transform 0.1s; flex-shrink:0; }
+.delete-button:hover { background:#D32F2F; transform:scale(1.05); }
+.delete-button:active { transform:scale(0.95); }
+.back { color:#4CAF50; cursor:pointer; font-size:18px; margin-bottom:25px; display:inline-block; transition:0.3s; font-weight:600; }
+.back:hover { transform: translateX(-8px); color:#81C784; }
+.profile-header { max-width:650px; margin:auto; display:flex; align-items:center; margin-bottom:30px; padding-bottom:10px; border-bottom:1px solid #30363D; }
+.profile-header .circle { width:55px; height:55px; font-size:26px; }
+#currentChallengeName { margin-left:15px; font-size:28px; font-weight:700; color:#fff; }
+.member-detail-title { max-width:650px; margin:0 auto 30px auto; font-size:32px; font-weight:800; color:#fff; padding-bottom:10px; border-bottom:2px solid #30363D; }
+.challenge-details-content { max-width:650px; margin:auto; }
+.challenge-stats { background:#21262D; padding:15px; border-radius:10px; margin-bottom:20px; text-align:center; font-size:16px; color:#FFC107; font-weight:600; border:1px dashed #FF9800; }
+.add-participant-section { background:#1E252D; padding:20px; border-radius:12px; margin-bottom:25px; border:1px solid #30363D; }
+.add-participant-section h3 { color:#FFC107; margin-top:0; font-size:20px; border-bottom:1px dashed #30363D; padding-bottom:10px; margin-bottom:15px; }
+.add-participant-controls { display:flex; gap:10px; }
+#memberSelect { flex-grow:1; padding:10px; border-radius:8px; border:1px solid #30363D; background:#0D1117; color:white; font-size:16px; }
+/* O botão addParticipantButton NÃO TEM MAIS O TEXTO "Adicionar", agora usa o estilo compacto */
+#addParticipantButton { background:#FF9800; color:white; width:40px; height:40px; padding:0; border-radius:50%; font-size:24px; display:flex; align-items:center; justify-content:center; }
+.participant-item { background:#161B22; padding:20px; border-radius:12px; margin-bottom:15px; box-shadow:0 4px 10px rgba(0,0,0,0.6); border:1px solid #30363D; }
+.participant-header { display:flex; align-items:center; justify-content:space-between; padding-bottom:15px; border-bottom:1px solid #30363D; margin-bottom:15px; }
+.participant-header .item-info { padding:0; cursor:default; transition:none; background:none; }
+.participant-header .item-info:hover { background:none; }
+.participant-header .circle { background:#4CAF50; }
+.participant-name { font-size:18px; font-weight:700; color:#fff; }
+.participant-details-group { display:flex; flex-direction:column; gap:15px; margin-top:10px; }
+.participant-details-group label { display:block; font-size:14px; color:#81C784; margin-bottom:5px; font-weight:600; }
+.participant-details-group textarea { width:100%; padding:10px; border-radius:8px; border:1px solid #30363D; background:#0D1117; color:white; font-size:15px; resize:vertical; min-height:50px; box-sizing:border-box; }
+.participant-details-group button { background:#4CAF50; color:white; padding:10px; margin-top:5px; }
+.skill-block, .summary-block { max-width:650px; margin:auto; background:#161B22; border-radius:12px; padding:25px; margin-bottom:35px; box-shadow:0 4px 10px rgba(0,0,0,0.6); border:1px solid #30363D; }
+.skill-block h3, .summary-block h3 { color:#4CAF50; font-size:22px; margin:0 0 15px 0; padding:0; border-bottom:1px solid #30363D; padding-bottom:10px; }
+.skill-line { background:#1E252D; padding:15px; border-radius:10px; margin-bottom:10px; border:1px solid #FF9800; }
+.skill-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.skill-label { font-weight:bold; font-size:16px; color:#FFC107; }
+.progress-container { height:10px; background:#30363D; border-radius:5px; overflow:hidden; }
+.progress-bar { height:100%; background:linear-gradient(90deg,#FF9800,#FFC107); border-radius:5px; transition: width 0.3s ease-out; }
+.skill-controls { display:flex; align-items:center; }
+.skill-controls button { background:#FF9800; color:#161B22; font-weight:900; width:30px; height:30px; line-height:1; font-size:18px; border:none; border-radius:50%; margin-left:8px; box-shadow:none; transition: background-color 0.1s; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.skill-controls button:hover { background:#E68900; transform:none; }
+.skill-controls button:active { transform:scale(0.95); }
+.skill-controls button:disabled { background:#30363D; color:#6A737D; }
+.summary-header { display:flex; justify-content:space-between; align-items:center; }
+#summaryDisplay { padding:15px; background:#1E252D; border-radius:8px; white-space:pre-wrap; border:1px solid #30363D; }
+#summaryTextarea { width:100%; padding:12px; border-radius:8px; border:1px solid #30363D; background:#0D1117; color:white; font-size:15px; resize:vertical; box-sizing:border-box; }
+#saveSummaryButton { background:#4CAF50; color:white; padding:12px; width:100%; margin-top:15px; }
+.placeholder-text { font-style:italic; color:#6A737D; }
+.status-message { color:white; background:#D32F2F; padding:10px; margin-bottom:15px; border-radius:8px; text-align:center; display:none; font-weight:600; opacity:0; transition: opacity 0.5s ease; }
+.status-success { background:#4CAF50; }
+#statusInfo { font-size:12px; color:#6A737D; text-align:center; padding:15px 0; word-break:break-all; }
+.modal-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000; display:none; }
+.modal-content { background:#161B22; padding:30px; border-radius:12px; max-width:90%; width:400px; text-align:center; box-shadow:0 5px 15px rgba(0,0,0,0.9); border:1px solid #30363D; }
+.modal-content h3 { color:#F44336; margin-top:0; border-bottom:1px solid #30363D; padding-bottom:10px; margin-bottom:20px; }
+.modal-content p { color:#E0E0E0; margin-bottom:25px; font-size:16px; }
+.modal-actions { display:flex; justify-content:space-around; gap:15px; }
+.modal-btn { padding:10px 20px; border-radius:8px; font-weight:700; cursor:pointer; transition:background-color 0.2s; flex-grow:1; }
+.modal-cancel { background:#30363D; color:#E0E0E0; }
+.modal-cancel:hover { background:#4A4A4A; }
+.modal-delete { background:#F44336; color:white; }
+.modal-delete:hover { background:#D32F2F; }
 </style>
 </head>
-
 <body>
 
-<!-- NOVO: TELA DE CARREGAMENTO (Bloqueia a interação inicial) -->
-<div id="loadingScreen">
-    <div class="loader-circle"></div>
-    <div id="loadingMessage">Iniciando a Aplicação...</div>
+<header>RETIRO 2026 🏆 ESTRATEGISTA PESSOAL</header>
+
+<!-- TELA 1 (PRINCIPAL) -->
+<div id="tela1" class="screen active">
+    <div class="list-container">
+        <!-- A caixa de status é onde a mensagem de "adicionado com sucesso" vai aparecer -->
+        <div id="statusMessage" class="status-message"></div>
+        <h2 class="main-section-title" style="color:#03A9F4;">
+            <span>INTEGRANTES:</span>
+            <div>
+                <!-- Botão de Copiar Todos (Agora apenas o ícone) -->
+                <button id="copyAllBtn" class="copy-btn" title="Copiar relatório completo de todos os integrantes">📋</button>
+            </div>
+        </h2>
+        <!-- CAMPO PARA ADICIONAR MEMBRO -->
+        <div class="add-section">
+            <input type="text" id="newMemberName" placeholder="Nome do novo membro..." maxlength="30" />
+            <!-- Botão Adicionar Membro - SEM ONCLICK INLINE -->
+            <button id="addMemberButton" class="button-base member-button compact-add-button">+</button>
+        </div>
+        <div id="memberList"></div>
+    </div>
+
+    <div class="list-container">
+        <h2 class="main-section-title" style="color:#FF9800;">PROVAS & DESAFIOS:</h2>
+        <!-- CAMPO PARA ADICIONAR PROVA -->
+        <div class="add-section">
+            <input type="text" id="newChallengeName" placeholder="Nome da nova Prova (ex: Corrida, Balde)..." maxlength="50" />
+            <!-- Botão Adicionar Prova - SEM ONCLICK INLINE -->
+            <button id="addChallengeButton" class="button-base challenge-button compact-add-button">+</button>
+        </div>
+        <div id="challengeList"></div>
+    </div>
+
+    <div id="statusInfo">Status: Inicializando...</div>
 </div>
 
+<!-- TELA 2 (DETALHES DA PROVA) -->
+<div id="tela2" class="screen">
+    <div class="challenge-details-content">
+        <span class="back" onclick="backToMain()">← Voltar para Provas</span>
+        <div class="profile-header">
+            <div id="challengeCircle" class="circle challenge-circle"></div>
+            <span id="currentChallengeName"></span>
+        </div>
+        <div class="challenge-stats">
+            <span id="participantCount">0 Participantes</span>
+        </div>
 
-<!-- CONTEÚDO PRINCIPAL (Fica escondido até o loading terminar) -->
-<div id="mainContentWrapper">
-    <header>RETIRO 2026 🏆 (ESTRATEGISTA PESSOAL)</header>
-
-    <!-- TELA 1: LISTA DE MEMBROS E PROVAS -->
-    <div id="tela1" class="screen active">
-        
-        <!-- 1. BLOCO DE INTEGRANTES -->
-        <div class="list-container">
-            <!-- Mensagem de status para feedback ao usuário -->
-            <div id="statusMessage" class="status-message"></div>
-
-            <h2>INTEGRANTES:</h2>
-
-            <!-- Seção de Adicionar Membro -->
-            <div class="add-item-section">
-                <input type="text" id="newMemberName" placeholder="Nome do novo membro..." maxlength="30">
-                <!-- Botão agora não tem disabled no HTML, o loading screen bloqueia. -->
-                <button id="addMemberButton" class="button-base" onclick="addMember()">Adicionar</button>
-            </div>
-
-            <div id="memberList">
-                <!-- Conteúdo de Membros será gerado via JavaScript -->
+        <div class="add-participant-section">
+            <h3>Adicionar Membro à Prova</h3>
+            <div class="add-participant-controls">
+                <select id="memberSelect" name="memberSelect"><option value="" disabled selected>Selecione um integrante...</option></select>
+                <!-- Botão Adicionar Participante - SEM ONCLICK INLINE -->
+                <button id="addParticipantButton" class="button-base">+</button>
             </div>
         </div>
-        
-        <!-- 2. BLOCO DE PROVAS E DESAFIOS -->
-        <div class="list-container" style="margin-top: 20px;">
-            <h2>PROVAS E DESAFIOS:</h2>
-            <div id="gamesList">
-                <!-- Conteúdo das Provas será gerado via JavaScript -->
-            </div>
-        </div>
-        
-        <!-- Aviso de Armazenamento/Sincronização -->
-        <div id="userIdDisplay"></div>
-    </div>
 
-    <!-- TELA 2: HABILIDADES DO MEMBRO -->
-    <div id="tela2" class="screen">
-        <div class="skills-title-container">
-            <span class="back" onclick="back()">← Voltar para a lista</span>
-
-            <div class="profile">
-                <div id="profileCircle" class="circle"></div> 
-                <span id="currentMemberName"></span>
-            </div>
-
-            <div id="skillsContainer">
-            </div>
-            
-            <!-- Bloco de Resumo (Análise) -->
-            <div class="summary-block">
-                <div class="summary-header">
-                    <h3>Resumo de Análise</h3>
-                    <button id="summaryToggleButton" class="button-base add-summary-button" onclick="toggleSummaryInput()">+</button>
-                </div>
-                
-                <div id="summaryDisplay">
-                </div>
-                
-                <div id="summaryEditArea" class="edit-area" style="display:none;">
-                    <textarea id="summaryTextarea" ro<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Retiro 2026 - Estrategista Pessoal</title>
-
-<!-- Importações Firebase -->
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { 
-        getFirestore, doc, setDoc, updateDoc, deleteDoc, 
-        onSnapshot, collection, query, writeBatch, runTransaction, getDoc,
-        setLogLevel
-    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    // Variáveis Globais de Configuração (FORNECIDAS PELO AMBIENTE)
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-    // Variáveis Globais de Serviços Firebase
-    window.firebaseApp = null;
-    window.db = null;
-    window.auth = null;
-    window.currentUserId = null;
-    window.isAuthReady = false; 
-    
-    // Configuração dos Caminhos do Firestore (Dados Públicos/Compartilhados)
-    window.MEMBER_COLLECTION_PATH = `artifacts/${appId}/public/data/members`;
-    window.ROSTER_COLLECTION_PATH = `artifacts/${appId}/public/data/rosters`;
-    
-    // Configuração de Log (Útil para Debug)
-    setLogLevel('error'); 
-
-    /** Atualiza a mensagem no loading screen. */
-    function updateLoadingMessage(message) {
-        const msgEl = document.getElementById('loadingMessage');
-        if (msgEl) {
-            msgEl.textContent = message;
-        }
-    }
-
-    /** Esconde o loading screen e mostra o app. */
-    function hideLoadingScreen() {
-        const loadingEl = document.getElementById('loadingScreen');
-        if (loadingEl) {
-            loadingEl.style.opacity = '0';
-            setTimeout(() => {
-                loadingEl.style.display = 'none';
-                document.getElementById('mainContentWrapper').style.display = 'block';
-            }, 500); // 500ms para a transição suave
-        }
-    }
-
-
-    /** Inicializa o Firebase e a Autenticação. */
-    window.initFirebase = async () => {
-        if (!firebaseConfig) {
-            console.error("Firebase config is missing.");
-            updateLoadingMessage("⚠️ ERRO: Configuração Firebase ausente. Os dados NÃO serão salvos.");
-            return;
-        }
-        
-        updateLoadingMessage("Aquecendo os Estrategistas...");
-
-        window.firebaseApp = initializeApp(firebaseConfig);
-        window.db = getFirestore(window.firebaseApp);
-        window.auth = getAuth(window.firebaseApp);
-
-        // 1. Autenticação
-        onAuthStateChanged(window.auth, async (user) => {
-            if (user) {
-                window.currentUserId = user.uid;
-                window.isAuthReady = true;
-                console.log("Usuário autenticado:", window.currentUserId);
-                
-                // Exibir ID do Usuário (Obrigatório para Apps Colaborativos)
-                document.getElementById('userIdDisplay').textContent = `ID Estrategista: ${window.currentUserId}`;
-                
-                updateLoadingMessage("Conexão estabelecida. Preparando o Campo Tático...");
-                
-                // Iniciar escuta de dados após a autenticação
-                window.startDataListeners();
-
-                // FINALMENTE, ESCONDE A TELA DE LOADING E MOSTRA O APP PRINCIPAL
-                hideLoadingScreen();
-                
-            } else {
-                console.log("Aguardando autenticação...");
-            }
-        });
-        
-        // Tentativa de login customizado ou anônimo
-        try {
-            updateLoadingMessage("Sincronizando dados de persistência...");
-            if (initialAuthToken) {
-                await signInWithCustomToken(window.auth, initialAuthToken);
-            } else {
-                await signInAnonymously(window.auth);
-            }
-        } catch (error) {
-            console.error("Erro na autenticação:", error);
-            updateLoadingMessage("⚠️ ERRO: Falha na autenticação. Dados podem não ser persistidos.");
-            // Mesmo com erro, permite o uso (sem persistência) após um delay.
-            setTimeout(hideLoadingScreen, 3000); 
-        }
-    };
-    
-    // ------------------- FUNÇÕES DE ACESSO AO FIRESTORE -------------------
-    
-    // Funções exportadas para o escopo global (usadas no resto do script)
-    window.getFirestoreRef = getFirestore;
-    window.docRef = doc;
-    window.colRef = collection;
-    window.setDoc = setDoc;
-    window.updateDoc = updateDoc;
-    window.deleteDoc = deleteDoc;
-    window.onSnapshot = onSnapshot;
-    window.runTransaction = runTransaction;
-    window.getDoc = getDoc;
-    window.getAuth = getAuth;
-
-    // Inicializa o Firebase ao carregar o script
-    window.initFirebase();
-</script>
-
-
-<style>
-    /* -------------------- CONFIG BASE - DARK THEME -------------------- */
-    body {
-        margin: 0;
-        font-family: 'Inter', sans-serif;
-        background: #121212; /* Fundo Escuro */
-        color: #E0E0E0; /* Texto Claro */
-        overflow-x: hidden;
-        min-height: 100vh;
-        padding-bottom: 20px;
-    }
-
-    header {
-        background: #00796B; /* Teal - Cor de Destaque */
-        padding: 20px;
-        font-size: 28px;
-        font-weight: 700;
-        text-align: center;
-        color: white;
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6); 
-        margin-bottom: 20px;
-    }
-
-    /* -------------------- LOADING SCREEN ESTILIZADO -------------------- */
-    #loadingScreen {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: #121212; /* Fundo escuro igual ao body */
-        z-index: 10000;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        opacity: 1;
-        transition: opacity 0.5s ease;
-    }
-
-    .loader-circle {
-        border: 8px solid #333; /* Cinza escuro */
-        border-top: 8px solid #00BCD4; /* Ciano/Teal brilhante */
-        border-radius: 50%;
-        width: 60px;
-        height: 60px;
-        animation: spin 1s linear infinite;
-        margin-bottom: 20px;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    #loadingMessage {
-        color: #B2DFDB; /* Teal Claro */
-        font-size: 20px;
-        font-weight: 600;
-        text-align: center;
-        max-width: 80%;
-    }
-    
-    #mainContentWrapper {
-        display: none; /* Escondido até o Firebase estar pronto */
-    }
-
-    .screen {
-        display: none;
-        padding: 0 20px;
-        animation: fadeIn 0.4s ease;
-    }
-    .active {
-        display: block;
-    }
-
-    /* -------------------- ANIMAÇÕES E HOVER -------------------- */
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to   { opacity: 1; transform: none; }
-    }
-
-    .button-base {
-        padding: 8px 15px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: 600;
-        transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-    }
-
-    .button-base:active {
-        transform: scale(0.98);
-        box-shadow: none;
-    }
-    
-    .back {
-        display: flex; 
-        align-items: center;
-        width: fit-content; 
-        color: #B2DFDB; 
-        cursor: pointer;
-        font-size: 16px; 
-        font-weight: 600; 
-        padding: 8px 12px; 
-        border-radius: 6px; 
-        margin-bottom: 20px;
-        transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
-    }
-
-    .back:hover {
-        color: #FFFFFF; 
-        background-color: #00796B; 
-        box-shadow: 0 0 5px rgba(0, 121, 107, 0.7); 
-    }
-
-
-    /* -------------------- LAYOUT GERAL (TELA 1, 2 e 3) -------------------- */
-    .list-container {
-        background: #1E1E1E; /* Fundo do Card */
-        color: #E0E0E0;
-        border-radius: 15px;
-        padding: 20px;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7);
-        max-width: 600px;
-        margin: 0px auto; 
-    }
-    
-    h2, .section-title {
-        margin-top: 0;
-        margin-bottom: 15px;
-        border-bottom: 1px solid #333;
-        padding-bottom: 10px;
-        color: #B2DFDB; /* Teal Claro */
-        font-size: 22px;
-    }
-
-    /* Mensagem de Status (sucesso/erro/sincronizando) */
-    .status-message {
-        color: white;
-        background: #D32F2F; /* Cor de erro */
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 8px;
-        text-align: center;
-        display: none;
-        font-weight: 600;
-        opacity: 0;
-        transition: opacity 0.5s ease;
-    }
-    .status-success {
-        background: #00796B; /* Cor de sucesso */
-    }
-    .status-saving {
-        background: #F9A825; /* Amarelo (Aguardando) */
-    }
-    
-    /* Informação de Armazenamento e ID do Usuário */
-    #userIdDisplay {
-        text-align: center;
-        color: #B2DFDB; 
-        padding: 5px 0;
-        font-size: 12px;
-        font-weight: 600;
-        margin-top: 20px;
-        white-space: pre-wrap;
-        word-break: break-all;
-        border-top: 1px solid #333;
-        padding-top: 15px;
-    }
-
-
-    /* Estilo para Adicionar Item (Membro ou Prova) */
-    .add-item-section {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
-    }
-
-    .add-item-section input {
-        flex-grow: 1;
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid #333;
-        background: #252525;
-        color: white;
-    }
-
-    #addMemberButton, #addParticipantButton {
-        background: #00796B;
-        color: white;
-        flex-shrink: 0;
-    }
-    /* NOTA: Removemos o disabled no HTML, o loading screen faz o bloqueio. */
-    #addMemberButton:hover, #addParticipantButton:hover {
-        background: #004D40;
-    }
-
-
-    /* Container do Item (Usado para Membro e Participante de Prova) */
-    .item {
-        margin-bottom: 15px;
-        border-bottom: 1px solid #333;
-        padding-bottom: 15px;
-        display: block; 
-    }
-    .item:last-child {
-        border-bottom: none;
-    }
-    
-    .info-block {
-        display: flex;
-        align-items: center;
-        flex-grow: 1;
-        cursor: pointer;
-        padding: 0; 
-        transition: background-color 0.2s, transform 0.1s;
-    }
-    .member-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-    
-    .circle {
-        width: 30px;
-        height: 30px;
-        background: #00796B;
-        border-radius: 50%;
-        margin-right: 12px;
-        flex-shrink: 0; 
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 900;
-        font-size: 16px;
-        color: white;
-    }
-    
-    .circle-game {
-        background: #252525;
-        font-size: 24px; 
-        padding: 0;
-        width: 45px; 
-        height: 45px;
-        border-radius: 10px; 
-        display: flex; 
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 0 5px rgba(0, 121, 107, 0.5); 
-    }
-    
-    .game-details {
-        display: flex;
-        flex-direction: column;
-    }
-    .game-details strong {
-        font-size: 16px;
-        font-weight: 700;
-        color: #fff;
-    }
-    .game-details span {
-        font-size: 12px;
-        color: #A0A0A0;
-    }
-
-    .delete-button {
-        background: #B71C1C; 
-        color: white;
-        width: 30px;
-        height: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        border: none;
-        border-radius: 50%; 
-        font-size: 16px; 
-        line-height: 1;
-        margin-left: 10px;
-        transition: background-color 0.2s;
-        flex-shrink: 0;
-    }
-    .delete-button:hover {
-        background: #9A1818; 
-    }
-
-
-    /* -------------------- LAYOUT TELA 3 (ROSTER) ESPECÍFICO -------------------- */
-    
-    .notes-container {
-        margin-top: 10px;
-        padding-left: 42px; 
-    }
-    .notes-container strong {
-        display: block;
-        margin-bottom: 5px;
-        color: #FFB300;
-        font-size: 12px;
-    }
-    .notes-container textarea {
-        width: 100%;
-        box-sizing: border-box;
-        padding: 8px;
-        border-radius: 6px;
-        border: 1px solid #333;
-        background: #252525;
-        color: white;
-        resize: vertical;
-        min-height: 50px;
-        font-size: 14px;
-    }
-    
-    .note-actions {
-        display: flex;
-        justify-content: flex-end;
-        margin-top: 5px;
-    }
-    
-    .save-note-btn {
-        background: #00796B;
-        color: white;
-        padding: 5px 12px;
-        font-size: 12px;
-        font-weight: 700;
-        border-radius: 6px;
-        transition: background-color 0.2s;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-    }
-    .save-note-btn:disabled {
-        background: #333;
-        color: #777;
-        cursor: not-allowed;
-        box-shadow: none;
-    }
-    .save-note-btn:enabled:hover {
-        background: #004D40;
-    }
-
-    /* -------------------- LAYOUT TELA 2 (SKILLS) -------------------- */
-
-    .skills-title-container {
-        padding: 0 20px; 
-        max-width: 600px;
-        margin: 0px auto;
-    }
-    .profile {
-        display: flex;
-        align-items: center;
-        margin-bottom: 25px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #444;
-    }
-    .profile .circle {
-        width: 50px;
-        height: 50px;
-        font-size: 24px;
-    }
-    #currentMemberName {
-        margin-left: 15px;
-        font-size: 24px;
-        font-weight: 700;
-        color: #fff;
-    }
-    
-    .skill-line {
-        background: #1E1E1E;
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-    }
-    .skill-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-    .skill-label {
-        font-weight: bold;
-        font-size: 18px;
-        color: #B2DFDB;
-    }
-    .progress-container {
-        height: 15px; background: #333; border-radius: 8px; overflow: hidden; border: 1px solid #444; 
-    }
-    .progress-bar {
-        height: 100%; background: linear-gradient(90deg, #F9A825, #FFEB3B); border-radius: 8px; transition: width 0.3s ease-out; box-shadow: 0 0 5px #F9A825;
-    }
-    .skill-controls button {
-        background: #333; color: white; width: 30px; height: 30px; line-height: 1; font-size: 18px; border: 1px solid #555; border-radius: 50%; margin-left: 5px;
-    }
-    .skill-controls button:disabled { background: #121212; color: #555; cursor: not-allowed; }
-    .skill-controls button:enabled:hover { background: #444; }
-
-    .summary-block {
-        background: #1E1E1E; border-radius: 10px; padding: 20px; margin-top: 25px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-    }
-    .summary-header {
-        display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;
-    }
-    .summary-block h3 {
-        color: #B2DFDB; font-size: 20px; margin: 0; padding: 0; border-bottom: none; 
-    }
-    .add-summary-button {
-        background: #00796B; color: white; width: 30px; height: 30px; border-radius: 50%; padding: 0; font-size: 20px; line-height: 1;
-    }
-    #summaryTextarea {
-        width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #252525; color: white; resize: vertical; margin-bottom: 10px; font-size: 14px;
-    }
-    .save-button {
-        background: #00796B; color: white; float: right; margin-top: 10px;
-    }
-    #summaryDisplay {
-        padding: 10px; background: #252525; border-radius: 8px; min-height: 40px; white-space: pre-wrap; color: #C0C0C0; font-style: italic;
-    }
-    .placeholder-text {
-        opacity: 0.6; font-style: italic;
-    }
-
-    /* -------------------- MODAL DE EXCLUSÃO -------------------- */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 1000;
-    }
-    .modal-content {
-      background: #1a1a1a; padding: 20px; border-radius: 12px; width: 90%; max-width: 350px; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.9); animation: fadeIn 0.3s; border: 1px solid #333;
-    }
-    .modal-content h3 {
-      color: #B71C1C; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px;
-    }
-    .modal-actions {
-      display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;
-    }
-    .modal-btn {
-      padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: background 0.2s;
-    }
-    .modal-cancel {
-      background: #444; color: white;
-    }
-    .modal-delete {
-      background: #B71C1C; color: white;
-    }
-
-</style>
-</head>
-
-<body>
-
-<!-- NOVO: TELA DE CARREGAMENTO (Bloqueia a interação inicial) -->
-<div id="loadingScreen">
-    <div class="loader-circle"></div>
-    <div id="loadingMessage">Iniciando a Aplicação...</div>
-</div>
-
-
-<!-- CONTEÚDO PRINCIPAL (Fica escondido até o loading terminar) -->
-<div id="mainContentWrapper">
-    <header>RETIRO 2026 🏆 (ESTRATEGISTA PESSOAL)</header>
-
-    <!-- TELA 1: LISTA DE MEMBROS E PROVAS -->
-    <div id="tela1" class="screen active">
-        
-        <!-- 1. BLOCO DE INTEGRANTES -->
-        <div class="list-container">
-            <!-- Mensagem de status para feedback ao usuário -->
-            <div id="statusMessage" class="status-message"></div>
-
-            <h2>INTEGRANTES:</h2>
-
-            <!-- Seção de Adicionar Membro -->
-            <div class="add-item-section">
-                <input type="text" id="newMemberName" placeholder="Nome do novo membro..." maxlength="30">
-                <!-- Botão agora não tem disabled no HTML, o loading screen bloqueia. -->
-                <button id="addMemberButton" class="button-base" onclick="addMember()">Adicionar</button>
-            </div>
-
-            <div id="memberList">
-                <!-- Conteúdo de Membros será gerado via JavaScript -->
-            </div>
-        </div>
-        
-        <!-- 2. BLOCO DE PROVAS E DESAFIOS -->
-        <div class="list-container" style="margin-top: 20px;">
-            <h2>PROVAS E DESAFIOS:</h2>
-            <div id="gamesList">
-                <!-- Conteúdo das Provas será gerado via JavaScript -->
-            </div>
-        </div>
-        
-        <!-- Aviso de Armazenamento/Sincronização -->
-        <div id="userIdDisplay"></div>
-    </div>
-
-    <!-- TELA 2: HABILIDADES DO MEMBRO -->
-    <div id="tela2" class="screen">
-        <div class="skills-title-container">
-            <span class="back" onclick="back()">← Voltar para a lista</span>
-
-            <div class="profile">
-                <div id="profileCircle" class="circle"></div> 
-                <span id="currentMemberName"></span>
-            </div>
-
-            <div id="skillsContainer">
-            </div>
-            
-            <!-- Bloco de Resumo (Análise) -->
-            <div class="summary-block">
-                <div class="summary-header">
-                    <h3>Resumo de Análise</h3>
-                    <button id="summaryToggleButton" class="button-base add-summary-button" onclick="toggleSummaryInput()">+</button>
-                </div>
-                
-                <div id="summaryDisplay">
-                </div>
-                
-                <div id="summaryEditArea" class="edit-area" style="display:none;">
-                    <textarea id="summaryTextarea" rows="4" placeholder="Escreva aqui o resumo de habilidades e pontos fortes do membro..."></textarea>
-                    <button id="saveSummaryButton" class="button-base save-button" onclick="saveSummary()">Salvar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- TELA 3: ROSTER DA PROVA (NOVA TELA) -->
-    <div id="tela3" class="screen">
-        <div class="list-container">
-            <span class="back" onclick="back()">← Voltar para Provas</span>
-            <h2 id="gameRosterTitle" class="section-title"></h2>
-            
-            <!-- Adicionar Participante - UI Simplificada -->
-            <div class="add-item-section">
-                <input type="text" id="participantNameInput" placeholder="Nome do integrante..." maxlength="30">
-                <!-- Botão agora não tem disabled no HTML, o loading screen bloqueia. -->
-                <button id="addParticipantButton" class="button-base" onclick="addParticipantToGame()">Adicionar</button>
-            </div>
-
-            <!-- Lista de Participantes da Prova -->
-            <div id="gameParticipantsList">
-                <!-- Roster será injetado aqui -->
-            </div>
+        <div id="participantList">
+            <p style="text-align:center; color:#6A737D; padding:20px;">Adicione o primeiro participante acima.</p>
         </div>
     </div>
 </div>
 
+<!-- TELA 3 (DETALHES DO MEMBRO) -->
+<div id="tela3" class="screen">
+    <span class="back" onclick="backToMain()">← Voltar para a lista</span>
+    <h1 id="currentMemberName" class="member-detail-title"></h1>
 
-<!-- MODAL DE EXCLUÇÃO COMPETIDOR -->
+    <div id="skillsContainer" class="skill-block"><h3>Habilidades Táticas</h3></div>
+
+    <div class="summary-block">
+        <div class="summary-header">
+            <h3>Resumo de Análise</h3>
+            <!-- Botão Toggle Resumo também é um '+' compacto -->
+            <button id="summaryToggleButton" class="button-base compact-add-button" style="width:35px;height:35px;font-size:20px;margin-left:10px" onclick="toggleSummaryInput()">+</button>
+        </div>
+        <div id="summaryDisplay" class="placeholder-text"></div>
+        <div id="summaryEditArea" class="edit-area" style="display:none;">
+            <textarea id="summaryTextarea" rows="4" placeholder="Escreva aqui o resumo de habilidades e pontos fortes do membro..."></textarea>
+            <button id="saveSummaryButton" class="button-base save-button" onclick="saveSummary()">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE CONFIRMAÇÃO DE EXCLUSÃO -->
 <div id="deleteModal" class="modal-overlay">
     <div class="modal-content">
-      <h3>Excluir Membro</h3>
-      <p id="deleteModalText">Tem certeza que deseja EXCLUIR este membro e todos os seus dados táticos permanentemente?</p>
-      <div class="modal-actions">
-        <button class="modal-btn modal-cancel" onclick="hideDeleteModal()">Cancelar</button>
-        <button class="modal-btn modal-delete" onclick="confirmDelete()">EXCLUIR</button>
-      </div>
+        <h3>Confirmação de Exclusão</h3>
+        <p id="deleteModalText">Tem certeza?</p>
+        <div class="modal-actions">
+            <button class="modal-btn modal-cancel" onclick="hideDeleteModal()">Cancelar</button>
+            <button class="modal-btn modal-delete" onclick="confirmDelete()">EXCLUIR</button>
+        </div>
     </div>
 </div>
 
-
+<!-- SCRIPT (no final para garantir elementos no DOM) -->
 <script>
-    // Variáveis de Estado da Aplicação (AGORA SINCRONIZADAS COM FIRESTORE)
-    let membersData = {}; // { memberId: { id, name, skill: value, summary } }
-    let gamesRoster = {}; // { gameId: { participants: [{ memberId: '...', reasons: '...' }, ...] } }
+/* /******************************************************************
+ * GESTÃO DE DADOS: LOCALSTORAGE
+ * * Este aplicativo é 100% OFFLINE e utiliza a memória local (localStorage) 
+ * do dispositivo/navegador para salvar todos os dados.
+ ******************************************************************/
 
-    let currentMemberId = null; 
-    let currentGameId = null; 
+// CHAVES para o Local Storage (Memória Local)
+const MEMBER_STORAGE_KEY = 'retiro2026_members';
+const CHALLENGE_STORAGE_KEY = 'retiro2026_challenges';
+
+// Objetos para armazenar os dados carregados
+let membersData = {};
+let challengesData = {};
+let currentMemberId = null;
+let currentChallengeId = null;
+let currentScreen = 'main';
+
+// Configuração de Habilidades
+const allSkills = [
+    "Força","Agilidade","Reflexo","Velocidade","Tempo de reação",
+    "QI bíblico","Raciocínio","Controle psicológico","Competitividade","Agressividade"
+];
+const initialSkillLevel = 5;
+const maxSkillLevel = 9;
+const minSkillLevel = 1;
+
+// Referências aos elementos DOM (Definidos após DOMContentLoaded)
+let statusMessageEl, memberListEl, challengeListEl, statusInfoEl, memberSelectEl, copyAllBtn;
+let addMemberButton, addChallengeButton, addParticipantButton;
+
+/* -------------------- UTILIDADES -------------------- */
+/** Gerador de ID único (Essencial para persistir objetos e não apenas nomes) */
+function generateId() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'id-' + Math.random().toString(36).slice(2,10);
+}
+
+/** Mostra uma mensagem de status temporária na tela. */
+function showStatus(message, isError = false) {
+    if (!statusMessageEl) return;
+    statusMessageEl.textContent = message;
+    statusMessageEl.classList.remove('status-success');
+    if (!isError) statusMessageEl.classList.add('status-success');
     
-    // --------------------------------------------------------------------
-    // 📢 DADOS ESTÁTICOS DAS PROVAS E DESAFIOS 
-    // --------------------------------------------------------------------
-    const gamesData = [
-        { id: 'p1', emoji: '🧠', title: 'Perguntas e Respostas', detail: 'Desafio de conhecimentos gerais e QI bíblico.', category: 'Intelectual' },
-        { id: 'p2', emoji: '💪', title: 'Cabo de Guerra', detail: 'Teste de força física e coordenação em equipe.', category: 'Força/Equipe' },
-        { id: 'p3', emoji: '🏃‍♂️', title: 'Circuito', detail: 'Série de atividades físicas e mentais rápidas e sequenciais.', category: 'Agilidade/Reflexo' },
-        { id: 'p4', emoji: '🪣', title: 'Prova do Balde', detail: 'Exige precisão, equilíbrio e paciência.', category: 'Controle Psicológico/Raciocínio' },
-        { id: 'p5', emoji: '🧊🥤', title: 'Deslizar e Beber Água do Copo', detail: 'Prova de coordenação motor e tempo de reação sob pressão.', category: 'Agilidade/Tempo de Reação' },
-        { id: 'p6', emoji: '🪢', title: 'Pular Corda', detail: 'Teste de resistência e ritmo individual ou em dupla.', category: 'Força/Resistência' },
-        { id: 'p7', emoji: '⚡', title: 'Corrida Curta', detail: 'Sprint de alta velocidade em distância definida (Velocidade).', category: 'Velocidade/Reflexo' },
-        { id: 'p8', emoji: '🚩', title: 'Pega Bandeira', detail: 'Combina velocidade, agressividade e estratégia de equipe.', category: 'Agressividade/Competitividade' },
-        { id: 'p9', emoji: '🤝', title: 'Prova de Equipe', detail: 'Desafio colaborativo que exige comunicação e controle psicológico.', category: 'Competitividade/Controle Psicológico' },
-        { id: 'p10', emoji: '🏃‍♀️🧱', title: 'Corrida com Obstáculos', detail: 'Percurso com barreiras que exigem força e agilidade.', category: 'Agilidade/Força' },
-    ];
-
-    // Constantes de Habilidades
-    const allSkills = [
-        "Força", "Agilidade", "Reflexo", "Velocidade", "Tempo de reação",
-        "QI bíblico", "Raciocínio", "Controle psicológico", "Competitividade", "Agressividade"
-    ];
-    const initialSkillLevel = 5;
-    const maxSkillLevel = 9;
-    const minSkillLevel = 1;
-
-    // Referências DOM 
-    let statusMessageEl;
-    let memberListEl;
-    let gamesListEl; 
-    let participantNameInputEl;
-    let gameParticipantsListEl;
-    let deleteModalEl;
-    let deleteModalTextEl;
-    let addMemberButtonEl;
-    let addParticipantButtonEl;
+    statusMessageEl.style.opacity = '1';
+    statusMessageEl.style.display = 'block';
     
-    // Armazenamento para a função de desinscrição do snapshot do Firestore
-    let unsubscribeMembers = null;
-    let unsubscribeRosters = null;
+    setTimeout(() => {
+        statusMessageEl.style.opacity = '0';
+        setTimeout(() => { statusMessageEl.style.display = 'none'; }, 500);
+    }, 3000);
+}
+window.showStatus = showStatus;
 
+/** 💾 Salva o estado atual (Membros e Provas) no localStorage. */
+function saveDataToStorage() {
+    try {
+        localStorage.setItem(MEMBER_STORAGE_KEY, JSON.stringify(membersData));
+        localStorage.setItem(CHALLENGE_STORAGE_KEY, JSON.stringify(challengesData));
+        console.log("SALVAMENTO LOCAL: Dados de Membros e Provas atualizados no localStorage.");
+        renderAllLists();
+    } catch (error) {
+        console.error("ERRO ao salvar no localStorage:", error);
+        showStatus("ERRO: Falha ao salvar dados localmente. Verifique o espaço de armazenamento.", true);
+    }
+}
 
-    // -------------------- LÓGICA DE FIRESTORE LISTENERS --------------------
+/** 📂 Carrega os dados do localStorage ao iniciar. */
+function loadDataFromStorage() {
+    try {
+        const storedMembers = localStorage.getItem(MEMBER_STORAGE_KEY);
+        const storedChallenges = localStorage.getItem(CHALLENGE_STORAGE_KEY);
+        
+        membersData = storedMembers ? JSON.parse(storedMembers) : {};
+        challengesData = storedChallenges ? JSON.parse(storedChallenges) : {};
+
+        if (statusInfoEl) {
+             statusInfoEl.textContent = `Status: ${Object.keys(membersData).length} membros e ${Object.keys(challengesData).length} provas carregadas.`;
+        }
+    } catch (error) {
+        console.error("ERRO ao carregar do localStorage:", error);
+        showStatus("ERRO: Falha ao carregar dados locais. Os dados podem estar corrompidos.", true);
+    }
+}
+
+/** Dispara a renderização de todas as listas na tela principal e atualiza as telas de detalhe. */
+function renderAllLists() {
+    renderMemberList();
+    renderChallengeList();
+    populateMemberSelect();
     
-    /** Inicia a escuta em tempo real dos dados do Firestore. */
-    window.startDataListeners = () => {
-        if (!window.isAuthReady || !window.db) return;
-        
-        // Evita múltiplos listeners
-        if (unsubscribeMembers) unsubscribeMembers();
-        if (unsubscribeRosters) unsubscribeRosters();
-
-        // 1. Listener para Membros
-        const membersQuery = window.colRef(window.db, window.MEMBER_COLLECTION_PATH);
-        unsubscribeMembers = window.onSnapshot(membersQuery, (snapshot) => {
-            snapshot.docChanges().forEach(change => {
-                const data = change.doc.data();
-                if (change.type === "added" || change.type === "modified") {
-                    membersData[data.id] = data;
-                } else if (change.type === "removed") {
-                    delete membersData[data.id];
-                }
-            });
-            // Re-renderiza a lista de membros e, se estiver na tela 2, a tela de skills
-            renderMemberList();
-            if (currentMemberId && document.getElementById('tela2').classList.contains('active')) {
-                renderSkills();
-            }
-            // Re-renderiza o roster se for necessário (para atualizar contagem)
-            if (document.getElementById('tela3').classList.contains('active')) {
-                renderGameRoster();
-            }
-            
-        }, (error) => {
-            console.error("Erro ao escutar membros:", error);
-            showStatus("Erro ao sincronizar membros. Tente recarregar a página.", true);
-        });
-
-        // 2. Listener para Rosters de Provas
-        const rosterQuery = window.colRef(window.db, window.ROSTER_COLLECTION_PATH);
-        unsubscribeRosters = window.onSnapshot(rosterQuery, (snapshot) => {
-            snapshot.docChanges().forEach(change => {
-                const data = change.doc.data();
-                if (change.type === "added" || change.type === "modified") {
-                    gamesRoster[data.id] = data;
-                } else if (change.type === "removed") {
-                    delete gamesRoster[data.id];
-                }
-            });
-            // Re-renderiza a lista de jogos na tela 1 e, se estiver na tela 3, o roster atual
-            renderGamesList();
-            if (currentGameId && document.getElementById('tela3').classList.contains('active')) {
-                renderGameRoster();
-            }
-        }, (error) => {
-            console.error("Erro ao escutar rosters:", error);
-            showStatus("Erro ao sincronizar rosters. Tente recarregar a página.", true);
-        });
+    // Atualiza as telas de detalhe se estiverem abertas
+    if (currentScreen === 'member' && currentMemberId) {
+        renderMemberDetails(); 
+    } else if (currentScreen === 'challenge' && currentChallengeId) {
+        const challenge = challengesData[currentChallengeId];
+        if (challenge && challenge.participants) {
+             const participantsArray = Object.values(challenge.participants);
+             renderParticipants(participantsArray);
+        }
     }
+}
 
-    // -------------------- FUNÇÕES DE UTILIDADE E FEEDBACK --------------------
+/* -------------------- FUNÇÕES DE INICIALIZAÇÃO -------------------- */
+/** Obtém todas as referências DOM após o carregamento */
+function setupDomReferences() {
+    statusMessageEl = document.getElementById('statusMessage');
+    memberListEl = document.getElementById('memberList');
+    challengeListEl = document.getElementById('challengeList');
+    statusInfoEl = document.getElementById('statusInfo');
+    memberSelectEl = document.getElementById('memberSelect');
+    copyAllBtn = document.getElementById('copyAllBtn');
 
-    /**
-     * Gera um ID único simples.
-     * @returns {string} ID único.
-     */
-    function generateId() {
-        // Gera um ID aleatório simples, pois o Firestore não usa auto-increment
-        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    }
+    addMemberButton = document.getElementById('addMemberButton');
+    addChallengeButton = document.getElementById('addChallengeButton');
+    addParticipantButton = document.getElementById('addParticipantButton');
+}
+
+/** Inicializa o aplicativo. */
+window.initApp = function() {
+    setupDomReferences();
+
+    if (statusInfoEl) statusInfoEl.textContent = "Status: Inicializando o aplicativo...";
     
-    /**
-     * Mostra uma mensagem de status temporária na tela.
-     */
-    function showStatus(message, isError = false, isSaving = false) {
-        statusMessageEl.textContent = message;
-        statusMessageEl.classList.remove('status-success', 'status-saving');
-        
-        if (isError) {
-            // Usa cor padrão de erro (vermelho)
-        } else if (isSaving) {
-            statusMessageEl.classList.add('status-saving');
-        } else {
-            statusMessageEl.classList.add('status-success');
-        }
-        
-        statusMessageEl.style.opacity = '1';
-        statusMessageEl.style.display = 'block';
+    loadDataFromStorage();
+    renderAllLists();
 
-        if (!isSaving) {
-            setTimeout(() => {
-                statusMessageEl.style.opacity = '0';
-                setTimeout(() => { statusMessageEl.style.display = 'none'; }, 500); 
-            }, 3000);
-        }
-    }
-    window.showStatus = showStatus; 
+    if (statusInfoEl) statusInfoEl.textContent = "Status: Pronto. Aplicativo 100% Offline (Dados no LocalStorage).";
+    console.log("APLICAÇÃO PRONTA: Dados carregados e tela principal ativada.");
+};
 
-    /** Exibe o modal de exclusão. */
-    window.showDeleteModal = function(memberIdToDelete) {
-        currentMemberId = memberIdToDelete; 
-        const memberName = membersData[memberIdToDelete]?.name || 'este membro';
-        deleteModalTextEl.innerHTML = `Tem certeza que deseja EXCLUIR o membro <strong>${memberName}</strong> e todos os seus dados táticos permanentemente?`;
-        deleteModalEl.style.display = 'flex';
-    }
+/* -------------------- CRUD MEMBROS GERAIS (TELA 1) -------------------- */
 
-    /** Oculta o modal de exclusão. */
-    window.hideDeleteModal = function() {
-        currentMemberId = null;
-        deleteModalEl.style.display = 'none';
-    }
-
-
-    // -------------------- LÓGICA DE DADOS GERAL (FIRESTORE) --------------------
-
-    /** Adiciona um novo membro ao Firestore. */
-    window.addMember = async function() {
-        // Garante que o Firebase esteja pronto
-        if (!window.isAuthReady) {
-            showStatus("Aguarde o carregamento inicial da aplicação.", true);
-            return;
-        }
-        
-        const input = document.getElementById('newMemberName');
-        const rawName = input.value.trim();
-
-        if (rawName.length < 3) {
-            showStatus("Nome deve ter pelo menos 3 letras.", true);
-            return;
-        }
-        
-        const addButton = addMemberButtonEl;
-        addButton.disabled = true;
-
-        const memberName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-        const memberExists = Object.values(membersData).some(c => c.name.toLowerCase() === memberName.toLowerCase());
-        
-        if (memberExists) {
-            showStatus(`Membro '${memberName}' já existe.`, true);
-            addButton.disabled = false;
-            return;
-        }
-
-        // Gera o ID do documento
-        const newId = generateId();
-        const newMemberData = { id: newId, name: memberName, summary: "" };
-        
-        allSkills.forEach(skill => {
-            newMemberData[skill] = initialSkillLevel;
-        });
-        
-        try {
-            showStatus("Salvando membro...", false, true);
-            const docRef = window.docRef(window.db, window.MEMBER_COLLECTION_PATH, newId);
-            await window.setDoc(docRef, newMemberData);
-
-            input.value = ''; 
-            showStatus(`Membro '${memberName}' adicionado e salvo!`, false);
-        } catch (e) {
-            console.error("Erro ao adicionar membro:", e);
-            showStatus(`Erro ao salvar membro. Verifique sua conexão.`, true);
-        } finally {
-            addButton.disabled = false;
-        }
-    }
+/** Função adicionar (Membro) - Utiliza localStorage */
+window.addMember = function() {
+    const input = document.getElementById('newMemberName'); // ID do campo de input do HTML
+    if (!input) { showStatus("Erro interno: Campo de nome não encontrado.", true); return; }
     
-    /** Deleta o membro e o remove de todos os Rosters (Transaction). */
-    window.confirmDelete = async function() {
-        if (!window.isAuthReady || !currentMemberId || !membersData[currentMemberId]) return;
-        
-        const memberIdToDelete = currentMemberId;
-        const memberName = membersData[memberIdToDelete].name;
-        
-        window.hideDeleteModal();
-        showStatus(`Excluindo ${memberName} da base de dados...`, false, true);
-
-        try {
-            await window.runTransaction(window.db, async (transaction) => {
-                // 1. Deletar o documento do membro
-                const memberDocRef = window.docRef(window.db, window.MEMBER_COLLECTION_PATH, memberIdToDelete);
-                transaction.delete(memberDocRef);
-
-                // 2. Remover o membro de todos os rosters
-                // Para garantir que a exclusão funcione no APK/ambiente, usaremos a lista gamesRoster sincronizada
-                // pelo onSnapshot, que é a fonte mais confiável de dados do lado do cliente.
-                for (const gameId in gamesRoster) {
-                    const roster = gamesRoster[gameId];
-                    const newParticipants = roster.participants.filter(p => p.memberId !== memberIdToDelete);
-                    
-                    if (newParticipants.length !== roster.participants.length) {
-                        const rosterDocRef = window.docRef(window.db, window.ROSTER_COLLECTION_PATH, gameId);
-                        transaction.update(rosterDocRef, { participants: newParticipants });
-                    }
-                }
-            });
-
-            showStatus(`Membro ${memberName} excluído com sucesso!`, false);
-            window.back(); 
-        } catch (e) {
-            console.error("Erro ao deletar membro (Transação):", e);
-            showStatus("Erro ao excluir membro. Tente novamente.", true);
-        }
-    }
-
-
-    // -------------------- LÓGICA DE DADOS DE PROVAS (TELA 3) --------------------
-
-    /** Encontra a prova pelo ID. */
-    function getGameById(id) {
-        return gamesData.find(g => g.id === id);
-    }
+    const rawName = input.value.trim();
+    if (rawName.length < 3) { showStatus("Nome deve ter pelo menos 3 letras.", true); return; }
     
-    /** Obtém o Roster da prova, inicializando se necessário. */
-    function getGameRoster(gameId) {
-        // Retorna o roster que está em memória (sincronizado pelo onSnapshot)
-        if (!gamesRoster[gameId]) {
-            gamesRoster[gameId] = { id: gameId, participants: [] };
-        }
-        return gamesRoster[gameId];
-    }
-
-    /** Adiciona um participante à prova atual e salva no Firestore. */
-    window.addParticipantToGame = async function() {
-        // Garante que o Firebase esteja pronto
-        if (!window.isAuthReady || !currentGameId) {
-            showStatus("Aguarde o carregamento inicial da aplicação.", true);
-            return;
-        }
-        
-        const rawName = participantNameInputEl.value.trim();
-        if (!rawName) {
-            showStatus("Digite o nome de um membro para adicionar.", true);
-            return;
-        }
-        
-        const addButton = addParticipantButtonEl;
-        addButton.disabled = true;
-
-        const memberId = Object.keys(membersData).find(id => 
-            membersData[id].name.toLowerCase() === rawName.toLowerCase()
-        );
-        
-        if (!memberId) {
-            showStatus(`Membro "${rawName}" não encontrado na lista de integrantes.`, true);
-            addButton.disabled = false;
-            return;
-        }
-
-        const roster = getGameRoster(currentGameId);
-        const member = membersData[memberId];
-
-        const alreadyAdded = roster.participants.some(p => p.memberId === memberId);
-        if (alreadyAdded) {
-            showStatus(`${member.name} já está nesta prova.`, true);
-            addButton.disabled = false;
-            return;
-        }
-        
-        const game = getGameById(currentGameId);
-        const newParticipant = {
-            memberId: memberId,
-            reasons: `Análise inicial: Necessário avaliar ${game.category}.`
-        };
-
-        const newParticipantsList = [...roster.participants, newParticipant];
-
-        try {
-            showStatus("Adicionando participante...", false, true);
-            const docRef = window.docRef(window.db, window.ROSTER_COLLECTION_PATH, currentGameId);
-            // setDoc com merge garante que se o documento da prova não existir, ele será criado
-            await window.setDoc(docRef, { id: currentGameId, participants: newParticipantsList }, { merge: true });
-            
-            participantNameInputEl.value = ''; 
-            showStatus(`${member.name} adicionado ao Roster e salvo!`, false);
-        } catch (e) {
-            console.error("Erro ao adicionar participante:", e);
-            showStatus(`Erro ao adicionar participante.`, true);
-        } finally {
-            addButton.disabled = false;
-        }
-    }
+    const memberId = generateId();
+    const memberName = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
     
-    /** Habilita o botão Salvar se o conteúdo da nota mudar. */
-    window.markNoteAsChanged = function(textareaEl, memberId) {
-        const saveButton = document.getElementById(`save-note-btn-${memberId}`);
-        const originalContent = textareaEl.getAttribute('data-original-content');
-        
-        const isChanged = textareaEl.value !== originalContent;
-        saveButton.disabled = !isChanged;
-    }
+    const initialData = { id: memberId, name: memberName, summary: "" };
+    allSkills.forEach(skill => { initialData[skill] = initialSkillLevel; });
     
-    /** Salva o conteúdo da nota no Firestore e reseta o estado do botão Salvar. */
-    window.saveAndResetNote = async function(memberId, buttonEl) {
-        if (!window.isAuthReady) {
-            showStatus("Aguarde o carregamento inicial da aplicação.", true);
-            return;
-        }
-
-        const textareaEl = document.getElementById(`reasons-${memberId}`);
-        if (!textareaEl) return;
-
-        buttonEl.disabled = true; // Desabilita imediatamente para evitar cliques repetidos
-        showStatus("Salvando nota...", false, true);
-
-        try {
-            // 1. Salvar o conteúdo na estrutura de dados (Firestore Update)
-            await updateParticipantReasons(memberId, textareaEl.value);
-            
-            // 2. Atualizar o estado do botão/textarea para 'salvo'
-            textareaEl.setAttribute('data-original-content', textareaEl.value);
-            showStatus(`Nota salva para ${membersData[memberId].name}!`, false);
-        } catch (e) {
-            console.error("Erro ao salvar nota:", e);
-            showStatus("Erro ao salvar nota.", true);
-            buttonEl.disabled = false; // Reabilita se houver erro
-        }
+    if (typeof membersData !== 'object' || membersData === null) {
+        membersData = {};
     }
+    membersData[memberId] = initialData;
+    saveDataToStorage(); // <-- Salva na memória local e renderiza listas
+    
+    input.value = '';
+    showStatus(`Membro '${memberName}' adicionado e salvo!`, false);
+};
 
-    /** Atualiza o campo de motivos/notas para um participante no Firestore (core logic). */
-    async function updateParticipantReasons(memberId, newReasons) {
-        if (!currentGameId || !memberId) throw new Error("ID do jogo ou membro ausente.");
-        
-        const rosterDocRef = window.docRef(window.db, window.ROSTER_COLLECTION_PATH, currentGameId);
-
-        // Usar transação para garantir atomicidade ao atualizar um item dentro de um array
-        await window.runTransaction(window.db, async (transaction) => {
-            const rosterDoc = await transaction.get(rosterDocRef);
-            if (!rosterDoc.exists()) {
-                throw new Error("Roster não existe.");
-            }
-            
-            const rosterData = rosterDoc.data();
-            const roster = rosterData.participants;
-            
-            const participantIndex = roster.findIndex(p => p.memberId === memberId);
-            
-            if (participantIndex !== -1) {
-                // Cria uma cópia da lista e atualiza o item
-                const newRoster = [...roster];
-                newRoster[participantIndex] = { ...newRoster[participantIndex], reasons: newReasons };
-                
-                // Salva a nova lista no Firestore
-                transaction.update(rosterDocRef, { participants: newRoster });
-            } else {
-                throw new Error("Participante não encontrado no roster.");
+/** Deleta o membro e remove ele de todas as provas. */
+async function deleteMember(memberId) {
+    const challengeIds = Object.keys(challengesData);
+    let removedFromChallenges = 0;
+    challengeIds.forEach(challengeId => {
+        const participants = challengesData[challengeId].participants || {};
+        const participantIds = Object.keys(participants);
+        participantIds.forEach(participantId => {
+            if (participants[participantId].memberRefId === memberId) {
+                delete challengesData[challengeId].participants[participantId];
+                removedFromChallenges++;
             }
         });
-    }
+    });
+    delete membersData[memberId];
+    saveDataToStorage();
+    window.showStatus(`Membro e dados excluídos com sucesso. Removido de ${removedFromChallenges} provas.`, false);
+}
 
-    /** Remove um participante da prova atual e salva no Firestore. */
-    window.removeParticipantFromGame = async function(memberId) {
-        if (!window.isAuthReady || !currentGameId || !memberId) {
-            showStatus("Aguarde o carregamento inicial da aplicação.", true);
-            return;
-        }
-        
-        const roster = getGameRoster(currentGameId);
-        const newParticipants = roster.participants.filter(p => p.memberId !== memberId);
-        const memberName = membersData[memberId]?.name || 'Participante';
+/* -------------------- CRUD PROVAS/DESAFIOS (TELA 1) -------------------- */
 
-        try {
-            showStatus(`Removendo ${memberName} do Roster...`, false, true);
-            const docRef = window.docRef(window.db, window.ROSTER_COLLECTION_PATH, currentGameId);
-            await window.setDoc(docRef, { id: currentGameId, participants: newParticipants }, { merge: true });
-            
-            showStatus(`${memberName} removido e salvo!`, false);
-        } catch (e) {
-            console.error("Erro ao remover participante:", e);
-            showStatus(`Erro ao remover participante.`, true);
-        }
-    }
-
-
-    // -------------------- LÓGICA DE DADOS DE SKILLS (TELA 2 - FIRESTORE) --------------------
+/** Função adicionar (Prova/Desafio) - Utiliza localStorage */
+window.addChallenge = function() {
+    const input = document.getElementById('newChallengeName'); // ID do campo de input do HTML
+    if (!input) { showStatus("Erro interno: Campo de nome da prova não encontrado.", true); return; }
     
-    /** Atualiza o resumo de um membro no Firestore. */
-    window.saveSummary = async function() {
-        if (!window.isAuthReady || !currentMemberId || !membersData[currentMemberId]) {
-            showStatus("Aguarde o carregamento inicial da aplicação.", true);
-            return;
-        }
-        
-        const summaryTextareaEl = document.getElementById('summaryTextarea');
-        const summaryEditAreaEl = document.getElementById('summaryEditArea');
-        const summaryToggleButtonEl = document.getElementById('summaryToggleButton');
-        const newSummary = summaryTextareaEl.value.trim();
-
-        try {
-            showStatus("Salvando resumo...", false, true);
-            const memberDocRef = window.docRef(window.db, window.MEMBER_COLLECTION_PATH, currentMemberId);
-            await window.updateDoc(memberDocRef, { summary: newSummary });
-            
-            // Desativa a edição na UI (onSnapshot irá re-renderizar o display)
-            summaryEditAreaEl.style.display = 'none';
-            summaryToggleButtonEl.textContent = '+';
-            document.getElementById('summaryDisplay').style.display = 'block'; 
-
-            showStatus("Resumo salvo com sucesso!", false);
-
-        } catch (e) {
-            console.error("Erro ao salvar resumo:", e);
-            showStatus("Erro ao salvar resumo.", true);
-        }
+    const rawName = input.value.trim();
+    if (rawName.length < 3) { showStatus("Nome da Prova deve ter pelo menos 3 caracteres.", true); return; }
+    
+    const challengeId = generateId();
+    const challengeName = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
+    
+    const initialData = { id: challengeId, name: challengeName, timestamp: new Date().toISOString(), participants: {} };
+    
+    if (typeof challengesData !== 'object' || challengesData === null) {
+        challengesData = {};
     }
+    challengesData[challengeId] = initialData;
+    saveDataToStorage(); // <-- Salva na memória local e renderiza listas
+    
+    input.value = '';
+    showStatus(`Prova '${challengeName}' adicionada e salva!`, false);
+};
 
-    /** Atualiza o nível de skill de um membro no Firestore. */
-    window.updateSkill = async function(skillName, change) {
-        if (!window.isAuthReady || !currentMemberId || !membersData[currentMemberId]) {
-            showStatus("Aguarde o carregamento inicial da aplicação.", true);
-            return;
-        }
+/** Deleta a prova e todos os seus participantes. */
+async function deleteChallenge(challengeId) {
+    delete challengesData[challengeId];
+    saveDataToStorage();
+    window.showStatus("Prova e todos os participantes excluídos com sucesso!", false);
+}
 
-        const data = membersData[currentMemberId];
-        let currentLevel = data[skillName] !== undefined ? data[skillName] : initialSkillLevel;
+/* -------------------- CRUD PARTICIPANTES DA PROVA (TELA 2) -------------------- */
 
-        let newLevel = currentLevel + change;
-        newLevel = Math.max(minSkillLevel, Math.min(maxSkillLevel, newLevel));
+/** Adiciona um membro à prova atual. */
+window.addParticipant = function() {
+    if (!currentChallengeId) { showStatus("Abra uma prova para adicionar participantes.", true); return; }
+    if (!memberSelectEl) { showStatus("Erro interno: Seletor de membros não encontrado.", true); return; }
+    
+    const memberId = memberSelectEl.value;
+    if (!memberId) { showStatus("Selecione um membro para adicionar.", true); return; }
+    if (!membersData[memberId]) { showStatus("Erro: Membro selecionado não encontrado.", true); return; }
 
-        if (newLevel !== currentLevel) {
-            try {
-                showStatus("Atualizando habilidade...", false, true);
-                const memberDocRef = window.docRef(window.db, window.MEMBER_COLLECTION_PATH, currentMemberId);
-                // Usa colchetes para usar o nome da skill como chave dinâmica
-                await window.updateDoc(memberDocRef, { [skillName]: newLevel });
-                showStatus("Habilidade atualizada!", false);
-            } catch (e) {
-                console.error("Erro ao atualizar skill:", e);
-                showStatus("Erro ao atualizar habilidade.", true);
-            }
-        }
+    const challenge = challengesData[currentChallengeId];
+    if (!challenge.participants) challenge.participants = {};
+    
+    const participants = challenge.participants;
+    const memberName = membersData[memberId].name;
+    const alreadyAdded = Object.values(participants).some(p => p.memberRefId === memberId);
+    
+    if (alreadyAdded) { showStatus("Este membro já está nesta prova.", true); return; }
+    
+    const participantId = generateId();
+    const participantData = {
+        id: participantId, 
+        memberRefId: memberId, 
+        name: memberName,
+        motive: `Motivo para ${memberName} participar... 🏆`,
+        score: "Notas: 0/100 📝", 
+    };
+    
+    challenge.participants[participantId] = participantData;
+    saveDataToStorage();
+    memberSelectEl.value = '';
+    showStatus(`Membro ${memberName} adicionado à prova!`, false);
+};
+
+/** Atualiza o motivo ou nota de um participante. */
+window.updateParticipant = function(participantId, field, value) {
+    if (!currentChallengeId) return;
+    const challenge = challengesData[currentChallengeId];
+    if (challenge && challenge.participants && challenge.participants[participantId]) {
+        challenge.participants[participantId][field] = value;
+        saveDataToStorage();
+        console.log(`Participante ${participantId} campo ${field} atualizado.`);
+    } else {
+        console.error("Erro: Participante não encontrado para atualização.");
     }
+};
 
+/** Remove um participante de uma prova. */
+window.deleteParticipant = function(participantId) {
+    if (!currentChallengeId) return;
+    const challenge = challengesData[currentChallengeId];
+    if (challenge && challenge.participants && challenge.participants[participantId]) {
+        delete challenge.participants[participantId];
+        saveDataToStorage();
+        showStatus("Participante removido da prova.", false);
+    } else {
+        showStatus("Erro: Participante não encontrado para exclusão.", true);
+    }
+};
 
-    // -------------------- RENDERIZAÇÃO E NAVEGAÇÃO --------------------
+/* -------------------- MODAL DE CONFIRMAÇÃO -------------------- */
+let entityToDeleteId = null;
+let entityTypeToDelete = null;
 
-    /** Renderiza a lista de membros na Tela 1. */
-    function renderMemberList() {
-        memberListEl.innerHTML = '';
-        
-        // Converte o objeto membersData em array e ordena por nome
-        const memberArray = Object.values(membersData).sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+window.showDeleteModal = function(id, type) {
+    entityToDeleteId = id;
+    entityTypeToDelete = type;
+    const modalTextEl = document.getElementById('deleteModalText');
+    if (type === 'member') {
+        const member = membersData[id];
+        modalTextEl.innerText = `Tem certeza que deseja EXCLUIR o membro ${member ? member.name : ''} e todos os seus dados (habilidades, e remover ele de todas as provas)? Esta ação é IRREVERSÍVEL.`;
+    } else if (type === 'challenge') {
+        const challenge = challengesData[id];
+        modalTextEl.innerText = `Tem certeza que deseja EXCLUIR a prova "${challenge ? challenge.name : ''}" e todos os seus participantes? Esta ação é IRREVERSÍVEL.`;
+    }
+    document.getElementById('deleteModal').style.display = 'flex';
+};
 
-        if (memberArray.length === 0) {
-            memberListEl.innerHTML = '<p style="text-align: center; color: #555; padding: 20px;">Nenhum membro cadastrado. Adicione um acima!</p>';
-            return;
-        }
+window.hideDeleteModal = function() {
+    document.getElementById('deleteModal').style.display = 'none';
+    entityToDeleteId = null;
+    entityTypeToDelete = null;
+};
 
-        memberArray.forEach(member => {
-            const initial = member.name.charAt(0).toUpperCase();
-            
-            const itemHtml = `
-                <div class="item group">
-                    <div class="info-block member-row" onclick="openSkills('${member.id}')">
-                        <div style="display: flex; align-items: center;">
-                            <div class="circle">${initial}</div>
-                            <span>${member.name}</span>
-                        </div>
-                        <button class="delete-button" onclick="event.stopPropagation(); showDeleteModal('${member.id}')">✕</button>
+window.confirmDelete = async function() {
+    if (!entityToDeleteId || !entityTypeToDelete) return;
+    window.hideDeleteModal();
+    if (entityTypeToDelete === 'member') {
+        if (currentMemberId === entityToDeleteId) backToMain();
+        await deleteMember(entityToDeleteId);
+    } else if (entityTypeToDelete === 'challenge') {
+        if (currentChallengeId === entityToDeleteId) backToMain();
+        await deleteChallenge(entityToDeleteId);
+    }
+};
+
+/* -------------------- RENDERIZAÇÃO E NAVEGAÇÃO -------------------- */
+
+/** Preenche o dropdown de seleção de membros na Tela 2. */
+function populateMemberSelect() {
+    if (!memberSelectEl) return;
+    memberSelectEl.innerHTML = '<option value="" disabled selected>Selecione um integrante...</option>';
+    const memberArray = Object.values(membersData || {});
+    memberArray.sort((a,b) => a.name.localeCompare(b.name, 'pt', { sensitivity:'base' }));
+    memberArray.forEach(member => {
+        const option = document.createElement('option');
+        option.value = member.id;
+        option.textContent = member.name;
+        memberSelectEl.appendChild(option);
+    });
+}
+
+/** Renderiza a lista de membros na Tela 1. */
+function renderMemberList() {
+    if (!memberListEl) return;
+    memberListEl.innerHTML = '';
+    const memberArray = Object.values(membersData || {}); 
+    if (memberArray.length === 0) {
+        memberListEl.innerHTML = '<p style="text-align:center; color:#6A737D; padding:20px;">Nenhum membro cadastrado. Adicione um acima!</p>';
+        return;
+    }
+    memberArray.sort((a,b) => a.name.localeCompare(b.name, 'pt', { sensitivity:'base' }));
+    memberArray.forEach(member => {
+        const initial = member.name.charAt(0).toUpperCase();
+        const itemHtml = `
+            <div class="item-list">
+                <!-- Informações do membro, que abrem a tela de detalhes -->
+                <div class="item-info" onclick="openMemberDetails('${member.id}')">
+                    <div class="circle">${initial}</div>
+                    <span>${member.name}</span>
+                </div>
+                <!-- Container para os botões de Ação (Copiar e Deletar) -->
+                <div class="item-actions">
+                    <!-- Botão de Copiar Detalhes Individuais (CORRIGIDO) -->
+                    <button class="small-copy-btn" onclick="copyMemberDetailsToClipboard('${member.id}')" title="Copiar Habilidades e Resumo">📋</button>
+                    <button class="delete-button" onclick="showDeleteModal('${member.id}', 'member')" style="margin-left: 10px;">✕</button>
+                </div>
+            </div>
+        `;
+        memberListEl.innerHTML += itemHtml;
+    });
+}
+
+/** Renderiza a lista de Provas na Tela 1. */
+function renderChallengeList() {
+    if (!challengeListEl) return;
+    challengeListEl.innerHTML = '';
+    const challengeArray = Object.values(challengesData || {}); 
+    if (challengeArray.length === 0) {
+        challengeListEl.innerHTML = '<p style="text-align:center; color:#6A737D; padding:20px;">Nenhuma prova cadastrada. Adicione uma acima!</p>';
+        return;
+    }
+    challengeArray.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    challengeArray.forEach(challenge => {
+        const initial = challenge.name.charAt(0).toUpperCase();
+        const itemHtml = `
+            <div class="item-list">
+                <div class="item-info" onclick="openChallengeDetails('${challenge.id}')">
+                    <div class="circle challenge-circle">${initial}</div>
+                    <span>${challenge.name}</span>
+                </div>
+                <button class="delete-button" onclick="showDeleteModal('${challenge.id}', 'challenge')">✕</button>
+            </div>
+        `;
+        challengeListEl.innerHTML += itemHtml;
+    });
+}
+
+/** Renderiza a lista de participantes na Tela 2. */
+function renderParticipants(participants) {
+    const participantListEl = document.getElementById('participantList');
+    const participantCountEl = document.getElementById('participantCount');
+    if (!participantListEl || !participantCountEl) return;
+    participantListEl.innerHTML = '';
+    if (!participants || participants.length === 0) {
+        participantListEl.innerHTML = '<p style="text-align:center; color:#6A737D; padding:20px;">Adicione o primeiro participante acima.</p>';
+        participantCountEl.textContent = '0 Participantes';
+        return;
+    }
+    participantCountEl.textContent = `${participants.length} Participante${participants.length > 1 ? 's' : ''}`;
+    participants.sort((a,b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+    participants.forEach(p => {
+        const initial = p.name.charAt(0).toUpperCase();
+        const participantHtml = `
+            <div class="participant-item">
+                <div class="participant-header">
+                    <div class="item-info">
+                        <div class="circle">${initial}</div>
+                        <span class="participant-name">${p.name}</span>
+                    </div>
+                    <button class="delete-button" onclick="deleteParticipant('${p.id}')">✕</button>
+                </div>
+                <div class="participant-details-group">
+                    <label for="motive-${p.id}">Motivo / Função na Prova:</label>
+                    <textarea id="motive-${p.id}" rows="2" onblur="updateParticipant('${p.id}','motive', this.value)" placeholder="Motivo (ex: Corredor de resistência)">${p.motive}</textarea>
+                    <label for="score-${p.id}">Notas / Pontuação:</label>
+                    <textarea id="score-${p.id}" rows="2" onblur="updateParticipant('${p.id}','score', this.value)" placeholder="Notas (ex: 9/10 em velocidade, 3s de tempo)">${p.score}</textarea>
+                </div>
+            </div>
+        `;
+        participantListEl.innerHTML += participantHtml;
+    });
+}
+
+/** Navega para a Tela 3 (Detalhes do Membro). */
+window.openMemberDetails = function(memberId) {
+    document.getElementById('tela1').classList.remove('active');
+    document.getElementById('tela2').classList.remove('active');
+    currentMemberId = memberId;
+    currentChallengeId = null;
+    currentScreen = 'member';
+    const member = membersData[memberId];
+    if (!member) return;
+    document.getElementById('currentMemberName').textContent = member.name;
+    renderMemberDetails();
+    document.getElementById('tela3').classList.add('active');
+};
+
+/** Navega para a Tela 2 (Detalhes da Prova). */
+window.openChallengeDetails = function(challengeId) {
+    document.getElementById('tela1').classList.remove('active');
+    document.getElementById('tela3').classList.remove('active');
+    currentChallengeId = challengeId;
+    currentMemberId = null;
+    currentScreen = 'challenge';
+    const challenge = challengesData[challengeId];
+    if (!challenge) return;
+    document.getElementById('currentChallengeName').textContent = challenge.name;
+    document.getElementById('challengeCircle').textContent = challenge.name.charAt(0).toUpperCase();
+    const participantsArray = Object.values(challenge.participants || {});
+    renderParticipants(participantsArray);
+    document.getElementById('tela2').classList.add('active');
+};
+
+/** Volta para a Tela 1 (Main). */
+window.backToMain = function() {
+    currentMemberId = null;
+    currentChallengeId = null;
+    currentScreen = 'main';
+    const summaryEditAreaEl = document.getElementById('summaryEditArea');
+    if (summaryEditAreaEl && document.getElementById('tela3').classList.contains('active')) {
+        toggleSummaryInput(false);
+    }
+    document.getElementById('tela2').classList.remove('active');
+    document.getElementById('tela3').classList.remove('active');
+    document.getElementById('tela1').classList.add('active');
+    renderAllLists();
+};
+
+/* -------------------- FUNÇÕES TELA 3 (DETALHES DO MEMBRO) -------------------- */
+window.renderMemberDetails = function() {
+    if (!currentMemberId || !membersData[currentMemberId]) return;
+    const data = membersData[currentMemberId];
+    const skillsContainerEl = document.getElementById('skillsContainer');
+    if (!skillsContainerEl) return;
+    skillsContainerEl.innerHTML = '<h3>Habilidades Táticas</h3>';
+    allSkills.forEach(skill => {
+        const level = data[skill] !== undefined ? data[skill] : initialSkillLevel;
+        const progressBarWidth = ((level / maxSkillLevel) * 100).toFixed(0);
+        const skillLineHtml = `
+            <div class="skill-line">
+                <div class="skill-header">
+                    <span class="skill-label">${skill}</span>
+                    <div class="skill-controls">
+                        <button class="button-base" onclick="updateSkill('${skill}', -1)" ${level <= minSkillLevel ? 'disabled' : ''}>-</button>
+                        <span style="font-weight:700; color:white; margin:0 5px; flex-shrink:0;">${level}</span>
+                        <button class="button-base" onclick="updateSkill('${skill}', 1)" ${level >= maxSkillLevel ? 'disabled' : ''}>+</button>
                     </div>
                 </div>
-            `;
-            memberListEl.innerHTML += itemHtml;
-        });
-    }
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: ${progressBarWidth}%;"></div>
+                </div>
+            </div>
+        `;
+        skillsContainerEl.innerHTML += skillLineHtml;
+    });
     
-    /** Renderiza a lista de provas na Tela 1. */
-    function renderGamesList() {
-        gamesListEl.innerHTML = '';
-        
-        if (gamesData.length === 0) {
-            gamesListEl.innerHTML = '<p style="text-align: center; color: #555; padding: 20px;">Nenhuma prova cadastrada.</p>';
-            return;
-        }
-        
-        gamesData.forEach(game => {
-            const roster = getGameRoster(game.id);
-            const participantCount = roster.participants.length;
-
-            const itemHtml = `
-                <div class="item game-item">
-                    <div class="info-block" onclick="openGameRoster('${game.id}')"> 
-                        <div class="circle circle-game">${game.emoji}</div>
-                        <div class="game-details">
-                            <strong>${game.title}</strong>
-                            <span>${game.category} | Participantes: ${participantCount}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-            gamesListEl.innerHTML += itemHtml;
-        });
-    }
-
-    /** Renderiza o Roster (lista de participantes) na Tela 3. */
-    function renderGameRoster() {
-        if (!currentGameId) return;
-
-        const roster = getGameRoster(currentGameId);
-        gameParticipantsListEl.innerHTML = '';
-        
-        participantNameInputEl.value = '';
-
-        if (roster.participants.length === 0) {
-             gameParticipantsListEl.innerHTML = '<p style="text-align: center; color: #555; padding: 20px;">Nenhum participante adicionado. Digite o nome de um membro cadastrado para adicionar.</p>';
-             return;
-        }
-
-        roster.participants.forEach(p => {
-            const member = membersData[p.memberId];
-            if (!member) return; 
-            
-            const initial = member.name.charAt(0).toUpperCase();
-            const reasonsText = p.reasons || '';
-
-            const participantHtml = `
-                <div class="item">
-                    <div class="member-row">
-                        <div class="info-block">
-                            <div class="circle">${initial}</div>
-                            <span style="font-weight: 600;">${member.name}</span>
-                        </div>
-                        <button class="delete-button" onclick="removeParticipantFromGame('${p.memberId}')">✕</button>
-                    </div>
-                    
-                    <div class="notes-container">
-                        <strong>🔍 Motivos/Análise do Estrategista:</strong>
-                        <textarea 
-                            id="reasons-${p.memberId}"
-                            data-original-content="${reasonsText}"
-                            oninput="markNoteAsChanged(this, '${p.memberId}')" 
-                            placeholder="Adicione suas notas táticas e motivos para a participação dele nesta prova."
-                        >${reasonsText}</textarea>
-                        
-                        <div class="note-actions">
-                            <button id="save-note-btn-${p.memberId}" class="button-base save-note-btn" 
-                                onclick="saveAndResetNote('${p.memberId}', this)" disabled>
-                                Salvar Nota
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            gameParticipantsListEl.innerHTML += participantHtml;
-        });
-    }
-
-    /** Renderiza as barras de habilidades e o resumo na Tela 2. */
-    function renderSkills() {
-        if (!currentMemberId || !membersData[currentMemberId]) return;
-
-        const data = membersData[currentMemberId];
-        const skillsContainerEl = document.getElementById('skillsContainer');
-        skillsContainerEl.innerHTML = '';
-
-        allSkills.forEach(skill => {
-            const level = data[skill] !== undefined ? data[skill] : initialSkillLevel; 
-            const progressBarWidth = ((level / maxSkillLevel) * 100).toFixed(0);
-
-            const skillLineHtml = `
-                <div class="skill-line">
-                    <div class="skill-header">
-                        <span class="skill-label">${skill}</span>
-                        <div class="skill-controls">
-                            <button class="button-base" onclick="updateSkill('${skill}', -1)" ${level <= minSkillLevel ? 'disabled' : ''}>-</button>
-                            <span style="font-weight: 700; color: white; margin: 0 5px;">${level}</span>
-                            <button class="button-base" onclick="updateSkill('${skill}', 1)" ${level >= maxSkillLevel ? 'disabled' : ''}>+</button>
-                        </div>
-                    </div>
-                    <div class="progress-container">
-                        <div class="progress-bar" style="width: ${progressBarWidth}%;"></div>
-                    </div>
-                </div>
-            `;
-            skillsContainerEl.innerHTML += skillLineHtml;
-        });
-
-        const summary = data.summary || "";
-        const summaryDisplayEl = document.getElementById('summaryDisplay');
+    // Resumo
+    const summary = data.summary || "";
+    const summaryDisplayEl = document.getElementById('summaryDisplay');
+    const summaryTextareaEl = document.getElementById('summaryTextarea');
+    if (summaryDisplayEl) {
         if (summary) {
             summaryDisplayEl.textContent = summary;
             summaryDisplayEl.classList.remove('placeholder-text');
@@ -1968,119 +782,189 @@
             summaryDisplayEl.textContent = "Nenhum resumo cadastrado. Clique em '+' para adicionar.";
             summaryDisplayEl.classList.add('placeholder-text');
         }
+    }
+    if (summaryTextareaEl) summaryTextareaEl.value = summary;
+};
+
+window.updateSkill = function(skillName, change) {
+    if (!currentMemberId) return;
+    const data = membersData[currentMemberId];
+    let currentLevel = data[skillName] !== undefined ? data[skillName] : initialSkillLevel;
+    let newLevel = currentLevel + change;
+    newLevel = Math.max(minSkillLevel, Math.min(maxSkillLevel, newLevel));
+    if (newLevel !== currentLevel) {
+        data[skillName] = newLevel;
+        saveDataToStorage();
+        showStatus("Habilidade atualizada!", false);
+    }
+};
+
+window.saveSummary = function() {
+    if (!currentMemberId) return;
+    const newSummary = document.getElementById('summaryTextarea').value.trim();
+    membersData[currentMemberId].summary = newSummary;
+    saveDataToStorage();
+    renderMemberDetails();
+    toggleSummaryInput(false);
+    showStatus("Resumo salvo com sucesso!", false);
+};
+
+window.toggleSummaryInput = function(enable) {
+    const summaryEditAreaEl = document.getElementById('summaryEditArea');
+    const summaryToggleButtonEl = document.getElementById('summaryToggleButton');
+    const summaryDisplayEl = document.getElementById('summaryDisplay');
+    if (!summaryEditAreaEl || !summaryToggleButtonEl || !summaryDisplayEl) return;
+    const isEditing = enable !== undefined ? enable : summaryEditAreaEl.style.display === 'none';
+    if (isEditing) {
+        const memberData = membersData[currentMemberId];
+        document.getElementById('summaryTextarea').value = (memberData && memberData.summary) ? memberData.summary : "";
         
-        // Sincroniza a textarea de edição se estiver aberta
-        const summaryEditAreaEl = document.getElementById('summaryEditArea');
-        const summaryTextareaEl = document.getElementById('summaryTextarea');
-        if (summaryEditAreaEl.style.display !== 'none') {
-            summaryTextareaEl.value = summary;
-        }
+        summaryEditAreaEl.style.display = 'block';
+        summaryToggleButtonEl.textContent = 'x';
+        summaryDisplayEl.style.display = 'none';
+    } else {
+        summaryEditAreaEl.style.display = 'none';
+        summaryToggleButtonEl.textContent = '+';
+        summaryDisplayEl.style.display = 'block';
+    }
+};
+
+/* -------------------- FUNÇÕES DE CÓPIA -------------------- */
+
+/** Gera um texto formatado com Nome, Habilidades e Resumo do membro e copia para clipboard */
+window.copyMemberDetailsToClipboard = async function(memberId) {
+    const member = membersData[memberId];
+    if (!member) {
+        showStatus("Membro não encontrado para cópia.", true);
+        return;
     }
 
+    const lines = [];
+    lines.push(`*** ANÁLISE ESTRATÉGICA - ${member.name.toUpperCase()} ***`);
+    lines.push('');
+    lines.push('--- HABILIDADES TÁTICAS (Nível 1-9) ---');
+    
+    allSkills.forEach(skill => {
+        const level = member[skill] !== undefined ? member[skill] : initialSkillLevel;
+        lines.push(`✅ ${skill}: ${level}`);
+    });
 
-    /** Navega para a Tela 2 (Habilidades). */
-    window.openSkills = function(memberId) {
-        currentMemberId = memberId;
-        const member = membersData[memberId];
+    lines.push('');
+    lines.push('--- RESUMO DE ANÁLISE ---');
+    lines.push(member.summary ? member.summary : '[Nenhum resumo cadastrado.]');
+    lines.push(''); 
+    lines.push('*** FIM DA ANÁLISE ***');
 
-        if (!member) {
-            showStatus("Aguardando sincronização do membro...", false, true);
-            return;
-        }
-        
-        document.getElementById('currentMemberName').textContent = member.name;
-        document.getElementById('profileCircle').textContent = member.name.charAt(0).toUpperCase();
-
-        renderSkills();
-        
-        document.getElementById('tela1').classList.remove('active');
-        document.getElementById('tela3').classList.remove('active');
-        document.getElementById('tela2').classList.add('active');
+    const resultText = lines.join('\n');
+    
+    // Lógica de CÓPIA ROBUSTA
+    const ta = document.createElement('textarea');
+    ta.value = resultText;
+    ta.style.position = 'fixed'; 
+    ta.style.left = '-9999px'; 
+    document.body.appendChild(ta);
+    
+    let success = false;
+    try {
+        ta.select();
+        success = document.execCommand('copy');
+    } catch (e) {
+        console.error("Erro ao tentar copiar com execCommand:", e);
     }
-
-    /** Navega para a Tela 3 (Roster da Prova). */
-    window.openGameRoster = function(gameId) {
-        currentGameId = gameId;
-        const game = getGameById(gameId);
-
-        if (!game) {
-            showStatus("Erro: Prova não encontrada.", true);
-            return;
-        }
-        
-        document.getElementById('gameRosterTitle').textContent = `${game.emoji} ${game.title}`;
-
-        renderGameRoster();
-        
-        document.getElementById('tela1').classList.remove('active');
-        document.getElementById('tela2').classList.remove('active');
-        document.getElementById('tela3').classList.add('active');
+    
+    document.body.removeChild(ta);
+    
+    if (success) {
+        showStatus(`Detalhes de ${member.name} copiados com sucesso!`, false);
+    } else {
+        showStatus("Erro ao copiar. O navegador pode ter bloqueado o acesso à área de transferência.", true);
     }
+}
 
-
-    /** Volta para a Tela 1 (Lista de Membros/Provas). */
-    window.back = function() {
-        currentMemberId = null;
-        currentGameId = null;
-        // Reinicializa o display do resumo (caso tenha voltado da tela 2)
-        document.getElementById('summaryEditArea').style.display = 'none';
-        document.getElementById('summaryToggleButton').textContent = '+';
-        document.getElementById('summaryDisplay').style.display = 'block';
-
-        document.getElementById('tela2').classList.remove('active');
-        document.getElementById('tela3').classList.remove('active');
-        document.getElementById('tela1').classList.add('active');
-        renderMemberList(); 
-        renderGamesList(); 
+/** Gera um texto com todos os integrantes + habilidades + resumo, copia para clipboard */
+async function copyAllMembersToClipboard() {
+    const memberArray = Object.values(membersData || {});
+    if (memberArray.length === 0) {
+        showStatus("Nenhum membro para copiar.", true);
+        return;
     }
+    memberArray.sort((a,b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+    const lines = [];
+    lines.push('*** RELATÓRIO COMPLETO DOS INTEGRANTES ***\n');
 
-    /** Alterna entre visualizar e editar o resumo (Função de Tela 2). */
-    window.toggleSummaryInput = function() {
-        const summaryEditAreaEl = document.getElementById('summaryEditArea');
-        const summaryToggleButtonEl = document.getElementById('summaryToggleButton');
-        const summaryTextareaEl = document.getElementById('summaryTextarea');
-        const summaryDisplayEl = document.getElementById('summaryDisplay');
+    memberArray.forEach(m => {
+        lines.push(`===================================`);
+        lines.push(`NOME: ${m.name.toUpperCase()}`);
+        lines.push(`-----------------------------------`);
+        lines.push('HABILIDADES TÁTICAS (1-9):');
+        allSkills.forEach(skill => {
+            lines.push(` - ${skill}: ${m[skill] !== undefined ? m[skill] : initialSkillLevel}`);
+        });
+        lines.push('\nRESUMO DE ANÁLISE:');
+        lines.push(m.summary ? m.summary : '[Nenhum resumo cadastrado.]');
+        lines.push('===================================\n');
+    });
+    
+    const resultText = lines.join('\n');
+    
+    // Lógica de CÓPIA ROBUSTA
+    const ta = document.createElement('textarea');
+    ta.value = resultText;
+    ta.style.position = 'fixed'; 
+    ta.style.left = '-9999px'; 
+    document.body.appendChild(ta);
+    
+    let success = false;
+    try {
+        ta.select();
+        success = document.execCommand('copy');
+    } catch (e) {
+        console.error("Erro ao tentar copiar com execCommand:", e);
+    }
+    
+    document.body.removeChild(ta);
+    
+    if (success) {
+        showStatus("Relatório completo copiado para a área de transferência.", false);
+    } else {
+        showStatus("Erro ao copiar. O navegador pode ter bloqueado o acesso à área de transferência.", true);
+    }
+}
 
-        const isEditing = summaryEditAreaEl.style.display === 'none';
-        
-        if (!currentMemberId && isEditing) {
-            showStatus("Selecione um membro primeiro.", true);
-            return;
+/* -------------------- INIT: Inicialização imediata -------------------- */
+document.addEventListener("DOMContentLoaded", function () {
+    try {
+        initApp();
+
+        // 1. Conecta botão copiar todos
+        if (copyAllBtn) copyAllBtn.addEventListener('click', copyAllMembersToClipboard);
+
+        // 2. Conecta os botões de Adição (Membros, Provas, Participantes) via EventListener
+        if (addMemberButton) {
+            addMemberButton.addEventListener('click', (e) => {
+                e.preventDefault(); 
+                addMember();
+            });
+        }
+        if (addChallengeButton) {
+            addChallengeButton.addEventListener('click', (e) => {
+                e.preventDefault(); 
+                addChallenge();
+            });
+        }
+        if (addParticipantButton) {
+            addParticipantButton.addEventListener('click', (e) => {
+                e.preventDefault(); 
+                addParticipant();
+            });
         }
 
-        if (isEditing) {
-            summaryEditAreaEl.style.display = 'block';
-            summaryToggleButtonEl.textContent = 'x'; 
-            summaryTextareaEl.value = membersData[currentMemberId]?.summary || "";
-            summaryDisplayEl.style.display = 'none'; 
-
-        } else {
-            summaryEditAreaEl.style.display = 'none';
-            summaryToggleButtonEl.textContent = '+';
-            summaryDisplayEl.style.display = 'block'; 
-        }
+        console.log("initApp concluído e Event Listeners conectados.");
+    } catch (e) {
+        console.error("ERRO grave na inicialização do App (initApp/EventListeners):", e);
+        window.showStatus("ERRO grave ao inicializar o aplicativo. Verifique o console.", true);
     }
-
-    // -------------------- INICIALIZAÇÃO --------------------
-
-    window.onload = () => {
-        // 1. Atribuição de variáveis DOM (Crucial para o JS interagir com o HTML)
-        statusMessageEl = document.getElementById('statusMessage');
-        memberListEl = document.getElementById('memberList');
-        gamesListEl = document.getElementById('gamesList'); 
-        participantNameInputEl = document.getElementById('participantNameInput'); 
-        gameParticipantsListEl = document.getElementById('gameParticipantsList');
-        deleteModalEl = document.getElementById('deleteModal');
-        deleteModalTextEl = document.getElementById('deleteModalText');
-        addMemberButtonEl = document.getElementById('addMemberButton');
-        addParticipantButtonEl = document.getElementById('addParticipantButton');
-
-
-        // O initFirebase é chamado pelo script module no <head>.
-        // A renderização inicial das listas vazias é importante.
-        renderMemberList();
-        renderGamesList();
-    };
+});
 </script>
 </body>
 </html>
