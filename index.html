@@ -6,12 +6,13 @@
 <title>Retiro 2026 - Estrategista Pessoal</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-/* -------------------- CONFIG BASE - DARK THEME - FONTES ATUALIZADAS -------------------- */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Oswald:wght@500;700&display=swap');
+/* -------------------- CONFIG BASE - DARK THEME - FONTES ORIGINAIS (INTER BOLD) -------------------- */
+/* Fonte única INTER para corpo e títulos, usando peso 900 (Black/Mais grosso) para máximo impacto nos títulos */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
 
 body {
     margin: 0;
-    /* Corpo do texto continua com Inter para excelente leitura */
+    /* Corpo do texto usa Inter */
     font-family: 'Inter', sans-serif; 
     background: #0D1117;
     color: #E0E0E0;
@@ -22,12 +23,12 @@ body {
 
 /* Fundo do cabeçalho com Gradiente Verde Escuro e texto em Branco */
 header {
-    /* Fonte Oswald para o título principal: mais impacto */
-    font-family: 'Oswald', sans-serif; 
+    /* Fonte INTER com peso 900 (Black) para o título principal: máximo impacto */
+    font-family: 'Inter', sans-serif; 
     background: linear-gradient(90deg, #004D40 0%, #1B5E20 100%); 
     padding: 20px;
-    font-size: 28px;
-    font-weight: 700;
+    font-size: 32px; 
+    font-weight: 900; /* PESO 900 RESTAURADO */
     text-align: center;
     color: #FFFFFF;
     box-shadow: 0 4px 20px rgba(0,0,0,0.5);
@@ -35,6 +36,7 @@ header {
     position: sticky;
     top: 0;
     z-index: 10;
+    letter-spacing: 0px; /* Resetando espaçamento para Inter */
 }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .screen { display: none; padding: 0 20px; animation: fadeIn 0.4s ease; }
@@ -53,9 +55,11 @@ header {
     margin-bottom:35px; 
 }
 .main-section-title { 
-    /* Fonte Oswald para os títulos de seção */
-    font-family: 'Oswald', sans-serif;
+    /* Fonte INTER com peso 900 (Black) para os títulos de seção: máximo impacto */
+    font-family: 'Inter', sans-serif;
     margin-top:0; margin-bottom:15px; padding-bottom:8px; color:#4CAF50; font-size:24px; border-bottom:2px solid #21262D; display:flex; align-items:center; justify-content:space-between; 
+    font-weight: 900; /* PESO 900 RESTAURADO */
+    letter-spacing: 0px;
 }
 
 /* Buttons and layout */
@@ -140,7 +144,7 @@ header {
 .profile-header { max-width:650px; margin:auto; display:flex; align-items:center; margin-bottom:30px; padding-bottom:10px; border-bottom:1px solid #30363D; }
 .profile-header .circle { width:55px; height:55px; font-size:26px; }
 #currentChallengeName { margin-left:15px; font-size:28px; font-weight:700; color:#fff; }
-.member-detail-title { max-width:650px; margin:0 auto 30px auto; font-size:32px; font-weight:800; color:#fff; padding-bottom:10px; border-bottom:2px solid #30363D; }
+.member-detail-title { max-width:650px; margin:0 auto 30px auto; font-size:32px; font-weight:900; color:#fff; padding-bottom:10px; border-bottom:2px solid #30363D; } /* PESO 900 RESTAURADO AQUI */
 .challenge-details-content { max-width:650px; margin:auto; }
 .challenge-stats { background:#21262D; padding:15px; border-radius:10px; margin-bottom:20px; text-align:center; font-size:16px; color:#FFC107; font-weight:600; border:1px dashed #FF9800; }
 .add-participant-section { background:#1E252D; padding:20px; border-radius:12px; margin-bottom:25px; border:1px solid #30363D; }
@@ -680,7 +684,6 @@ function renderParticipants(participants) {
         participantCountEl.textContent = '0 Participantes';
         return;
     }
-    participantCountEl.textContent = `${participants.length} Participante${participants.length > 1 ? 's' : ''}`;
     participants.sort((a,b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
     participants.forEach(p => {
         const initial = p.name.charAt(0).toUpperCase();
@@ -906,7 +909,8 @@ async function copyAllMembersToClipboard() {
         lines.push(`-----------------------------------`);
         lines.push('HABILIDADES TÁTICAS (1-9):');
         allSkills.forEach(skill => {
-            lines.push(` - ${skill}: ${m[skill] !== undefined ? m[skill] : initialSkillLevel}`);
+            const level = m[skill] !== undefined ? m[skill] : initialSkillLevel;
+            lines.push(` - ${skill}: ${level}`);
         });
         lines.push('\nRESUMO DE ANÁLISE:');
         lines.push(m.summary ? m.summary : '[Nenhum resumo cadastrado.]');
